@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: budget-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build: ./api
+    container_name: budget-api
+    depends_on:
+      - mongo
+    environment:
+      MONGO_URI: "mongodb://mongo:27017/budgetbaddie"
+    ports:
+      - "8000:8000"
+
+  ai-service:
+    build: ./ai-service
+    container_name: budget-ai-service
+    ports:
+      - "8001:8001"
+
+volumes:
+  mongo_data:
