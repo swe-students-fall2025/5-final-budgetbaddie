@@ -37,10 +37,12 @@ An AI powered budgeting app that helps you say YES to:
 # Future Planning
 
 # Team Members
-** [Athena Luo - funfig_16](https://github.com/funfig16) - Frontend UX Design & Database **
-** [Avi Herman - AviH7531](https://github.com/avih7531) - System Building & Database **
-** [Ezra Shapiro - ems9856-lgtm](https://github.com/ems9856-lgtm) - System Building & Data Visualization **
-** [Mya Pyke - myapyke123](https://github.com/myapyke123) - AI and API Incorporation **
-** [Tawhid Zaman - TawhidZGit](https://github.com/TawhidZGit) - Front End Design & AI Incorporation **
+## 👥 Team Members
+- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Frontend UX Design & Database 
+- **[Avi Herman – AviH7531](https://github.com/avih7531)** – System Building & Database 
+- **[Ezra Shapiro – ems9856-lgtm](https://github.com/ems9856-lgtm)** – System Building & Data Visualization 
+- **[Mya Pyke – myapyke123](https://github.com/myapyke123)** – AI and API Incorporation 
+- **[Tawhid Zaman – TawhidZGit](https://github.com/TawhidZGit)** – Front End Design & AI Incorporation  
+
 
 # License
