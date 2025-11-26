@@ -1,7 +1,7 @@
 # Final Project
 
 # Budget Baddie 💰
-**Spend Smart, Slay Hard!💅 **
+**Spend Smart, Slay Hard!💅**
 
 Ever want to buy something unnecessary at 2 am?
 Budget Baddie is here to help you make the right money decision!
@@ -16,7 +16,7 @@ An AI powered budgeting app that helps you say YES to:
 
 ...and NO to impulse buys and end-of-month panic!
 
-**Think Twice, Swipe Right! **
+**Think Twice, Swipe Right!**
 
 ---
 
