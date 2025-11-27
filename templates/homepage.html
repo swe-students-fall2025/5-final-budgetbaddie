@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard">
+  <header class="top-bar">
+    <h1>Budget Baddie</h1>
+    <div class="user">
+      <span>{{ user.email }}</span>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+  </header>
+
+  <main class="dashboard-main">
+    <div class="card">
+      <h2>This Month Overview</h2>
+      <p>Charts coming soon...</p>
+    </div>
+  </main>
+
+  <div class="fab-container">
+    <button class="fab" id="fab">+</button>
+    <div class="fab-menu" id="fab-menu">
+      <a class="fab-item" href="{{ url_for('add_expense') }}">Expense</a>
+      <a class="fab-item" href="{{ url_for('add_income') }}">Income</a>
+      <a class="fab-item" href="{{ url_for('ai_page') }}">AI</a>
+      <a class="fab-item" href="{{ url_for('upload_statement') }}">Statement</a>
+    </div>
+  </div>
+
+  <script>
+    const fab = document.getElementById("fab");
+    const menu = document.getElementById("fab-menu");
+    fab.addEventListener("click", () => {
+      menu.classList.toggle("open");
+    });
+  </script>
+</div>
+{% endblock %}
