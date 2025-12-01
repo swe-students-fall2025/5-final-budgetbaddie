@@ -139,3 +139,75 @@ async def test_budget_plan_unique_constraint(test_db):
     
     assert result is not None
 
+@pytest.mark.asyncio
+async def test_database_connection(test_db):
+    from app.database import get_database, Database
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    
+    # test get_database when client is set
+    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
+    original_client = Database.client
+    Database.client = AsyncIOMotorClient(test_uri)
+    
+    db = await get_database()
+    assert db.name == "budgetbaddie"
+    
+    Database.client.close()
+    Database.client = original_client
+
+@pytest.mark.asyncio
+async def test_create_indexes(test_db):
+    from app.database import create_indexes, Database, get_database
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    
+    # set up database connection for create_indexes
+    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
+    original_client = Database.client
+    Database.client = AsyncIOMotorClient(test_uri)
+    
+    # create indexes - should run without error
+    await create_indexes()
+    
+    # verify we can get database
+    db = await get_database()
+    assert db is not None
+    
+    Database.client.close()
+    Database.client = original_client
+
+@pytest.mark.asyncio
+async def test_expense_with_budget_plan_id(test_db):
+    user_id = str(ObjectId())
+    plan_id = str(ObjectId())
+    now = datetime.utcnow()
+    
+    expense_dict = Expense.create_expense_dict(
+        user_id, "test", 50.0, False, now, 12, 2024, plan_id
+    )
+    
+    assert "budget_plan_id" in expense_dict
+    result = await test_db.expenses.insert_one(expense_dict)
+    expense_dict["_id"] = result.inserted_id
+    
+    response = Expense.to_response(expense_dict)
+    assert response["budget_plan_id"] == plan_id
+
+@pytest.mark.asyncio
+async def test_income_with_budget_plan_id(test_db):
+    user_id = str(ObjectId())
+    plan_id = str(ObjectId())
+    now = datetime.utcnow()
+    
+    income_dict = Income.create_income_dict(
+        user_id, 1000.0, False, now, 12, 2024, plan_id
+    )
+    
+    assert "budget_plan_id" in income_dict
+    result = await test_db.incomes.insert_one(income_dict)
+    income_dict["_id"] = result.inserted_id
+    
+    response = Income.to_response(income_dict)
+    assert response["budget_plan_id"] == plan_id
+
