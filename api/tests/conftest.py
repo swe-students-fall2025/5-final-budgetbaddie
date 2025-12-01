@@ -1,11 +1,11 @@
 import pytest
+import pytest_asyncio
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from app.database import Database, get_database
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_db():
-    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://localhost:27017/budgetbaddie_test")
+    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
     test_client = AsyncIOMotorClient(test_uri)
     test_db = test_client.budgetbaddie_test
     
