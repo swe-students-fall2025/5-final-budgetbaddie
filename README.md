@@ -27,157 +27,162 @@ An AI powered budgeting app that helps you say YES to:
 - AI-powered purchase assistance
 - Reward system for smart spending
 
-# System Setup
+# Getting Started 🚀
 
-## ✔️ Requirements
-To run the project locally, you will need:
+## Prerequisites
 
-- **Python 3.11+**  
-- **pip / pip3**  
-- **Node / React** (for frontend)   
-- **MongoDB** (local or Docker)
+- **Docker** and **Docker Compose** installed
+- For local development: **Python 3.11+**
 
----
+## Quick Start
 
-# 🚀 How to Use (Local Development)
+1. **Clone the repository:**
+```bash
+git clone <repository-url>
+cd 5-final-budgetbaddie
+```
 
-## 🔹 Run the API Service (`api/`)
+2. **Start all services:**
+```bash
+docker compose up -d
+```
 
-cd api  
-python3 -m pip install -r requirements.txt  
-python3 -m uvicorn app.main:app --reload --port 8000  
+This starts:
+- **MongoDB** on port `27017`
+- **API service** on port `8000`
+- **AI service** on port `8001`
 
-Visit:
-http://localhost:8000/health
+3. **Verify services are running:**
+```bash
+# Check API health
+curl http://localhost:8000/health
 
-Expected:
-{"status": "ok", "service": "api"}
+# Check AI service health
+curl http://localhost:8001/health
+```
 
----
+4. **Stop services:**
+```bash
+docker compose down
+```
 
-## 🔹 Run the AI Service (`ai-service/`)
+## Database Setup
 
-Open a new terminal:
+### Automatic Setup
 
-cd ai-service  
-python3 -m pip install -r requirements.txt  
-python3 -m uvicorn app.main:app --reload --port 8001  
+Database indexes are **automatically created** when the API service starts. No manual setup required!
 
-Visit:
-http://localhost:8001/health
+### Manual Initialization (Optional)
 
-Expected:
-{"status": "ok", "service": "ai-service"}
+If you need to manually initialize the database:
 
----
+```bash
+docker exec -it budget-api python -m api.scripts.init_db
+```
 
-# 🐳 Run Entire System with Docker (optional)
+### Seed Data (Optional)
 
-docker-compose build  
-docker-compose up  
+To populate the database with sample test data:
 
-Stop:
-docker-compose down  
+```bash
+docker exec -it budget-api python -m api.scripts.seed_data
+```
 
----
+This creates:
+- Test user: `test@budgetbaddie.com`
+- Sample budget plan for current month
+- Sample expenses and income entries
 
-# 🔐 Environment Variables
+### Environment Variables
 
-Create `.env` file (root or inside `api/`):
+The default MongoDB connection is configured in `docker-compose.yml`:
+```
+MONGO_URI=mongodb://mongo:27017/budgetbaddie
+```
 
-MONGO_URI=mongodb://localhost:27017/budgetbaddie  
+For local development without Docker, create `api/.env`:
+```bash
+cp api/.env.example api/.env
+```
 
-Template (`env.example`):
+Then set:
+```
+MONGO_URI=mongodb://localhost:27017/budgetbaddie
+```
 
-MONGO_URI=mongodb://localhost:27017/budgetbaddie  
-# TODO: add more variables later  
+### Database Schema
 
----
+**Collections:**
+- `users` - User accounts and authentication
+- `budget_plans` - Monthly budget planning data
+- `expenses` - Expense tracking with categories
+- `incomes` - Income tracking
+- `spending_habits` - AI analysis data for spending patterns
+- `price_history` - Historical price data for AI suggestions
 
-# 🧱 Application Structure
+**Indexes:**
+- User-based queries (`user_id`)
+- Time-based queries (`date`, `month`, `year`)
+- Category filtering (`category`)
+- Unique constraints (user email, budget plans per month)
 
-5-final-budgetbaddie/  
-├── api/  
-│   ├── app/  
-│   │   ├── main.py  
-│   │   └── (more files coming soon)  
-│   ├── requirements.txt  
-│   └── Dockerfile  
-│  
-├── ai-service/  
-│   ├── app/  
-│   │   ├── main.py  
-│   │   └── (AI logic coming soon)  
-│   ├── requirements.txt  
-│   └── Dockerfile  
-│  
-├── frontend/  
-│   └── (To be added)  
-│  
-├── docker-compose.yml  
-├── instructions.md  
-├── pyproject.toml  
-└── README.md  
+# Application Structure 📁
 
----
+```
+5-final-budgetbaddie/
+├── api/                          # Main API service
+│   ├── app/
+│   │   ├── main.py              # FastAPI application entry point
+│   │   ├── database.py          # MongoDB connection & index setup
+│   │   ├── models/              # Database models (User, BudgetPlan, etc.)
+│   │   │   ├── user.py
+│   │   │   ├── budget_plan.py
+│   │   │   ├── expense.py
+│   │   │   ├── income.py
+│   │   │   ├── spending_habit.py
+│   │   │   └── price_history.py
+│   │   └── schemas/             # Pydantic validation schemas
+│   │       ├── user.py
+│   │       ├── budget_plan.py
+│   │       ├── expense.py
+│   │       ├── income.py
+│   │       ├── spending_habit.py
+│   │       └── price_history.py
+│   ├── scripts/                 # Database utilities
+│   │   ├── init_db.py           # Initialize database indexes
+│   │   └── seed_data.py         # Seed sample data
+│   ├── tests/                   # Unit tests
+│   │   ├── conftest.py          # Test fixtures
+│   │   └── test_database.py     # Database model tests
+│   ├── Dockerfile               # API container definition
+│   └── requirements.txt         # Python dependencies
+│
+├── ai-service/                   # AI service
+│   ├── app/
+│   │   └── main.py              # AI service FastAPI app
+│   ├── Dockerfile               # AI service container definition
+│   └── requirements.txt         # Python dependencies
+│
+├── docker-compose.yml           # Service orchestration
+└── README.md                    # This file
+```
 
-# 🧠 Tech Stack
+# Tech Stack
 
-### Backend  
-- FastAPI  
-- Uvicorn  
-- MongoDB  
-- Motor  
-- Docker  
+- **Backend**: FastAPI (Python)
+- **Database**: MongoDB 7
+- **Containerization**: Docker & Docker Compose
+- **Testing**: pytest with async support
 
-### Frontend  
-(To be added — React planned)
+# Future Planning
 
-### AI  
-FastAPI microservice  
-(To be expanded)
+# Team Members
+## 👥 Team Members
+- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Frontend UX Design & Database 
+- **[Avi Herman – AviH7531](https://github.com/avih7531)** – System Building & Database 
+- **[Ezra Shapiro – ems9856-lgtm](https://github.com/ems9856-lgtm)** – System Building & Data Visualization 
+- **[Mya Pyke – myapyke123](https://github.com/myapyke123)** – AI and API Incorporation 
+- **[Tawhid Zaman – TawhidZGit](https://github.com/TawhidZGit)** – Front End Design & AI Incorporation  
 
-### DevOps  
-GitHub Actions CI/CD (in progress)  
-Docker Hub deployments (coming soon)  
-
----
-
-# 🔮 Future Planning
-
-- Full user authentication (Signup/Login)  
-- Persistent budgeting/transaction history  
-- AI-powered purchase recommendations  
-- Integration of price scraping & spending insights  
-- Visual analytics dashboard  
-- Rewards and gamification  
-- Deployment to DigitalOcean  
-- Add CI badges, coverage badges  
-
----
-
-# 👥 Team Members
-
-- **Athena Luo – funfig_16**  
-  Frontend UX Design & Database  
-  https://github.com/funfig16  
-
-- **Avi Herman – AviH7531**  
-  System Building & Database  
-  https://github.com/AviH7531  
-
-- **Ezra Shapiro – ems9856-lgtm**  
-  System Building & Data Visualization  
-  https://github.com/ems9856-lgtm  
-
-- **Mya Pyke – myapyke123**  
-  AI & API Integration  
-  https://github.com/myapyke123  
-
-- **Tawhid Zaman – TawhidZGit**  
-  Frontend Design & AI Integration  
-  https://github.com/TawhidZGit  
-
----
 
 # License
