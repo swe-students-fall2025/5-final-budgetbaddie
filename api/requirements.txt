@@ -3,3 +3,7 @@ uvicorn[standard]
 pydantic
 motor
 python-dotenv
+pytest
+pytest-asyncio
+bcrypt
+email-validator
