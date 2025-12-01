@@ -68,63 +68,82 @@ docker compose down
 
 ## Database Setup
 
-### Automatic Setup
+### Production Database (Digital Ocean)
 
-Database indexes are **automatically created** when the API service starts. No manual setup required!
+The production MongoDB database is **hosted on Digital Ocean**. The database runs on a Digital Ocean droplet and is accessible remotely. Connection details are configured through GitHub Secrets for CI/CD deployments.
 
-### Manual Initialization (Optional)
+**Database Details:**
+- **Host**: Digital Ocean droplet
+- **Database Name**: `budgetbaddie`
+- **Collections**: `users`, `budget_plans`, `expenses`, `incomes`, `spending_habits`, `price_history`
 
-If you need to manually initialize the database:
+### Local Development Database
+
+For local development with Docker Compose, MongoDB runs in a container:
 
 ```bash
-docker exec -it budget-api python -m api.scripts.init_db
+docker compose up -d
 ```
 
-### Seed Data (Optional)
+This starts MongoDB on port `27017` locally. The API service automatically connects to it.
 
-To populate the database with sample test data:
+### Automatic Index Creation
+
+Database indexes are **automatically created** when the API service starts. No manual setup required! The indexes include:
+- User-based queries (`user_id`)
+- Time-based queries (`date`, `month`, `year`)
+- Category filtering (`category`)
+- Unique constraints (user email, budget plans per month)
+
+### Manual Database Operations (Optional)
+
+If you need to manually initialize the database or seed data:
 
 ```bash
+# Initialize indexes manually
+docker exec -it budget-api python -m api.scripts.init_db
+
+# Seed sample data
 docker exec -it budget-api python -m api.scripts.seed_data
 ```
 
-This creates:
-- Test user: `test@budgetbaddie.com`
-- Sample budget plan for current month
-- Sample expenses and income entries
-
 ### Environment Variables
 
-The default MongoDB connection is configured in `docker-compose.yml`:
-```
-MONGO_URI=mongodb://mongo:27017/budgetbaddie
-```
+**Note**: This project uses **Digital Ocean for production** and **Docker Compose for local development**. Environment variables are primarily configured through:
 
-For local development without Docker, create `api/.env`:
-```bash
-cp api/.env.example api/.env
-```
+1. **GitHub Secrets** (for CI/CD and production deployment)
+   - `MONGO_URI` - MongoDB connection string for production
+   - `DO_HOST` - Digital Ocean droplet IP address
+   - `DO_USERNAME` - SSH username for deployment
+   - `DO_SSH_KEY` - SSH private key for deployment
 
-Then set:
-```
-MONGO_URI=mongodb://localhost:27017/budgetbaddie
-```
+2. **Docker Compose** (for local development)
+   - MongoDB connection is configured in `docker-compose.yml`
+   - Default: `mongodb://mongo:27017/budgetbaddie`
+
+No `.env` files are required for local development when using Docker Compose. The services are configured to work out of the box.
 
 ### Database Schema
 
 **Collections:**
 - `users` - User accounts and authentication
+  - Fields: `_id`, `email` (unique), `password_hash`, `name`, `created_at`, `updated_at`
 - `budget_plans` - Monthly budget planning data
+  - Fields: `_id`, `user_id`, `month`, `year`, `total_budget`, `categories` (object), `created_at`, `updated_at`
 - `expenses` - Expense tracking with categories
+  - Fields: `_id`, `user_id`, `budget_plan_id`, `category`, `amount`, `is_essential`, `date`, `month`, `year`, `description`, `created_at`, `updated_at`
 - `incomes` - Income tracking
+  - Fields: `_id`, `user_id`, `budget_plan_id`, `amount`, `is_recurring`, `date`, `month`, `year`, `source`, `created_at`, `updated_at`
 - `spending_habits` - AI analysis data for spending patterns
+  - Fields: `_id`, `user_id` (unique), `habits` (object with analysis data), `created_at`, `updated_at`
 - `price_history` - Historical price data for AI suggestions
+  - Fields: `_id`, `item_name`, `price`, `date`, `store`, `created_at`
 
-**Indexes:**
-- User-based queries (`user_id`)
-- Time-based queries (`date`, `month`, `year`)
-- Category filtering (`category`)
-- Unique constraints (user email, budget plans per month)
+**Relationships:**
+- Users have many budget plans, expenses, and incomes
+- Users have one spending habits record
+- Budget plans can have many expenses and incomes
+- Expenses and incomes reference both users and budget plans
 
 # Application Structure 📁
 
@@ -170,9 +189,11 @@ MONGO_URI=mongodb://localhost:27017/budgetbaddie
 # Tech Stack
 
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB 7
+- **Database**: MongoDB 7 (hosted on Digital Ocean)
 - **Containerization**: Docker & Docker Compose
 - **Testing**: pytest with async support
+- **Deployment**: Digital Ocean (droplet hosting MongoDB and services)
+- **CI/CD**: GitHub Actions (automated build, test, and deployment)
 
 # Future Planning
 
