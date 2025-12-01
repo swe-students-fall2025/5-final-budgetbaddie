@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List
 from bson import ObjectId
 
@@ -17,7 +17,7 @@ class SpendingHabit:
             "category_totals": category_totals,
             "monthly_summaries": monthly_summaries,
             "average_monthly_spending": average_monthly_spending,
-            "updated_at": datetime.utcnow(),
+            "updated_at": datetime.now(UTC),
         }
     
     @staticmethod

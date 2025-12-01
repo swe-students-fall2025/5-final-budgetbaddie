@@ -1,7 +1,7 @@
 import asyncio
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from bson import ObjectId
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,7 +24,7 @@ async def seed_data():
     print(f"created test user: {user_id}")
     
     # create budget plan
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     plan_dict = BudgetPlan.create_budget_plan_dict(user_id, now.month, now.year)
     plan_result = await db.budget_plans.insert_one(plan_dict)
     plan_id = str(plan_result.inserted_id)
