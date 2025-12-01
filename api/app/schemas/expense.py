@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -11,6 +11,8 @@ class ExpenseCreate(BaseModel):
     year: Optional[int] = None
 
 class ExpenseResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: str
     user_id: str
     budget_plan_id: Optional[str] = None
@@ -21,7 +23,4 @@ class ExpenseResponse(BaseModel):
     month: int
     year: int
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 

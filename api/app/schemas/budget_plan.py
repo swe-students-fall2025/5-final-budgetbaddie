@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -7,6 +7,8 @@ class BudgetPlanCreate(BaseModel):
     year: int
 
 class BudgetPlanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: str
     user_id: str
     month: int
@@ -14,7 +16,4 @@ class BudgetPlanResponse(BaseModel):
     is_filled: bool
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
