@@ -29,21 +29,155 @@ An AI powered budgeting app that helps you say YES to:
 
 # System Setup
 
-# How to Use
+## ✔️ Requirements
+To run the project locally, you will need:
 
-# Application Structure
+- **Python 3.11+**  
+- **pip / pip3**  
+- **Node / React** (for frontend)   
+- **MongoDB** (local or Docker)
 
-# Tech Stack
+---
 
-# Future Planning
+# 🚀 How to Use (Local Development)
 
-# Team Members
-## 👥 Team Members
-- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Frontend UX Design & Database 
-- **[Avi Herman – AviH7531](https://github.com/avih7531)** – System Building & Database 
-- **[Ezra Shapiro – ems9856-lgtm](https://github.com/ems9856-lgtm)** – System Building & Data Visualization 
-- **[Mya Pyke – myapyke123](https://github.com/myapyke123)** – AI and API Incorporation 
-- **[Tawhid Zaman – TawhidZGit](https://github.com/TawhidZGit)** – Front End Design & AI Incorporation  
+## 🔹 Run the API Service (`api/`)
 
+cd api  
+python3 -m pip install -r requirements.txt  
+python3 -m uvicorn app.main:app --reload --port 8000  
+
+Visit:
+http://localhost:8000/health
+
+Expected:
+{"status": "ok", "service": "api"}
+
+---
+
+## 🔹 Run the AI Service (`ai-service/`)
+
+Open a new terminal:
+
+cd ai-service  
+python3 -m pip install -r requirements.txt  
+python3 -m uvicorn app.main:app --reload --port 8001  
+
+Visit:
+http://localhost:8001/health
+
+Expected:
+{"status": "ok", "service": "ai-service"}
+
+---
+
+# 🐳 Run Entire System with Docker (optional)
+
+docker-compose build  
+docker-compose up  
+
+Stop:
+docker-compose down  
+
+---
+
+# 🔐 Environment Variables
+
+Create `.env` file (root or inside `api/`):
+
+MONGO_URI=mongodb://localhost:27017/budgetbaddie  
+
+Template (`env.example`):
+
+MONGO_URI=mongodb://localhost:27017/budgetbaddie  
+# TODO: add more variables later  
+
+---
+
+# 🧱 Application Structure
+
+5-final-budgetbaddie/  
+├── api/  
+│   ├── app/  
+│   │   ├── main.py  
+│   │   └── (more files coming soon)  
+│   ├── requirements.txt  
+│   └── Dockerfile  
+│  
+├── ai-service/  
+│   ├── app/  
+│   │   ├── main.py  
+│   │   └── (AI logic coming soon)  
+│   ├── requirements.txt  
+│   └── Dockerfile  
+│  
+├── frontend/  
+│   └── (To be added)  
+│  
+├── docker-compose.yml  
+├── instructions.md  
+├── pyproject.toml  
+└── README.md  
+
+---
+
+# 🧠 Tech Stack
+
+### Backend  
+- FastAPI  
+- Uvicorn  
+- MongoDB  
+- Motor  
+- Docker  
+
+### Frontend  
+(To be added — React planned)
+
+### AI  
+FastAPI microservice  
+(To be expanded)
+
+### DevOps  
+GitHub Actions CI/CD (in progress)  
+Docker Hub deployments (coming soon)  
+
+---
+
+# 🔮 Future Planning
+
+- Full user authentication (Signup/Login)  
+- Persistent budgeting/transaction history  
+- AI-powered purchase recommendations  
+- Integration of price scraping & spending insights  
+- Visual analytics dashboard  
+- Rewards and gamification  
+- Deployment to DigitalOcean  
+- Add CI badges, coverage badges  
+
+---
+
+# 👥 Team Members
+
+- **Athena Luo – funfig_16**  
+  Frontend UX Design & Database  
+  https://github.com/funfig16  
+
+- **Avi Herman – AviH7531**  
+  System Building & Database  
+  https://github.com/AviH7531  
+
+- **Ezra Shapiro – ems9856-lgtm**  
+  System Building & Data Visualization  
+  https://github.com/ems9856-lgtm  
+
+- **Mya Pyke – myapyke123**  
+  AI & API Integration  
+  https://github.com/myapyke123  
+
+- **Tawhid Zaman – TawhidZGit**  
+  Frontend Design & AI Integration  
+  https://github.com/TawhidZGit  
+
+---
 
 # License
