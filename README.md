@@ -27,102 +27,144 @@ An AI powered budgeting app that helps you say YES to:
 - AI-powered purchase assistance
 - Reward system for smart spending
 
-# System Setup
+# Getting Started 🚀
 
 ## Prerequisites
-- Docker and Docker Compose installed
-- Python 3.11+ (for local development)
+
+- **Docker** and **Docker Compose** installed
+- For local development: **Python 3.11+**
+
+## Quick Start
+
+1. **Clone the repository:**
+```bash
+git clone <repository-url>
+cd 5-final-budgetbaddie
+```
+
+2. **Start all services:**
+```bash
+docker compose up -d
+```
+
+This starts:
+- **MongoDB** on port `27017`
+- **API service** on port `8000`
+- **AI service** on port `8001`
+
+3. **Verify services are running:**
+```bash
+# Check API health
+curl http://localhost:8000/health
+
+# Check AI service health
+curl http://localhost:8001/health
+```
+
+4. **Stop services:**
+```bash
+docker compose down
+```
 
 ## Database Setup
 
-### Using Docker Compose (Recommended)
+### Automatic Setup
 
-1. Start MongoDB and all services:
-```bash
-docker-compose up -d
-```
+Database indexes are **automatically created** when the API service starts. No manual setup required!
 
-This will start:
-- MongoDB on port `27017`
-- API service on port `8000`
-- AI service on port `8001`
+### Manual Initialization (Optional)
 
-### Environment Variables
-
-1. Copy the example environment file:
-```bash
-cp api/.env.example api/.env
-```
-
-2. The default `MONGO_URI` in docker-compose is:
-```
-mongodb://mongo:27017/budgetbaddie
-```
-
-For local development without Docker, use:
-```
-mongodb://localhost:27017/budgetbaddie
-```
-
-### Database Initialization
-
-The database indexes are automatically created when the API service starts. To manually initialize:
+If you need to manually initialize the database:
 
 ```bash
-# Inside the API container
 docker exec -it budget-api python -m api.scripts.init_db
 ```
 
 ### Seed Data (Optional)
 
-To populate the database with sample data for testing:
+To populate the database with sample test data:
 
 ```bash
-# Inside the API container
 docker exec -it budget-api python -m api.scripts.seed_data
 ```
 
 This creates:
-- A test user: `test@budgetbaddie.com`
+- Test user: `test@budgetbaddie.com`
 - Sample budget plan for current month
-- Sample expenses and income
+- Sample expenses and income entries
 
-## Database Schema
+### Environment Variables
 
-### Collections
+The default MongoDB connection is configured in `docker-compose.yml`:
+```
+MONGO_URI=mongodb://mongo:27017/budgetbaddie
+```
 
-- **users**: User accounts and authentication
-- **budget_plans**: Monthly budget planning data
-- **expenses**: Expense tracking with categories
-- **incomes**: Income tracking
-- **spending_habits**: AI analysis data for spending patterns
-- **price_history**: Historical price data for AI suggestions
+For local development without Docker, create `api/.env`:
+```bash
+cp api/.env.example api/.env
+```
 
-### Indexes
+Then set:
+```
+MONGO_URI=mongodb://localhost:27017/budgetbaddie
+```
 
-All collections have optimized indexes for:
+### Database Schema
+
+**Collections:**
+- `users` - User accounts and authentication
+- `budget_plans` - Monthly budget planning data
+- `expenses` - Expense tracking with categories
+- `incomes` - Income tracking
+- `spending_habits` - AI analysis data for spending patterns
+- `price_history` - Historical price data for AI suggestions
+
+**Indexes:**
 - User-based queries (`user_id`)
 - Time-based queries (`date`, `month`, `year`)
 - Category filtering (`category`)
 - Unique constraints (user email, budget plans per month)
 
-# How to Use
-
-# Application Structure
+# Application Structure 📁
 
 ```
-api/
-├── app/
-│   ├── main.py           # FastAPI application
-│   ├── database.py       # MongoDB connection
-│   ├── models/           # Database models
-│   └── schemas/          # Pydantic schemas
-├── scripts/              # Database initialization scripts
-└── tests/                # Unit tests
-
-ai-service/
-└── app/
-    └── main.py          # AI service application
+5-final-budgetbaddie/
+├── api/                          # Main API service
+│   ├── app/
+│   │   ├── main.py              # FastAPI application entry point
+│   │   ├── database.py          # MongoDB connection & index setup
+│   │   ├── models/              # Database models (User, BudgetPlan, etc.)
+│   │   │   ├── user.py
+│   │   │   ├── budget_plan.py
+│   │   │   ├── expense.py
+│   │   │   ├── income.py
+│   │   │   ├── spending_habit.py
+│   │   │   └── price_history.py
+│   │   └── schemas/             # Pydantic validation schemas
+│   │       ├── user.py
+│   │       ├── budget_plan.py
+│   │       ├── expense.py
+│   │       ├── income.py
+│   │       ├── spending_habit.py
+│   │       └── price_history.py
+│   ├── scripts/                 # Database utilities
+│   │   ├── init_db.py           # Initialize database indexes
+│   │   └── seed_data.py         # Seed sample data
+│   ├── tests/                   # Unit tests
+│   │   ├── conftest.py          # Test fixtures
+│   │   └── test_database.py     # Database model tests
+│   ├── Dockerfile               # API container definition
+│   └── requirements.txt         # Python dependencies
+│
+├── ai-service/                   # AI service
+│   ├── app/
+│   │   └── main.py              # AI service FastAPI app
+│   ├── Dockerfile               # AI service container definition
+│   └── requirements.txt         # Python dependencies
+│
+├── docker-compose.yml           # Service orchestration
+└── README.md                    # This file
 ```
 
 # Tech Stack
