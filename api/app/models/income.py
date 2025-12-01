@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 from bson import ObjectId
 
@@ -22,7 +22,7 @@ class Income:
             "date": date,
             "month": month,
             "year": year,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
         }
         if budget_plan_id:
             income["budget_plan_id"] = ObjectId(budget_plan_id) if isinstance(budget_plan_id, str) else budget_plan_id

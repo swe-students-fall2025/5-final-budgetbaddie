@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 from bson import ObjectId
 from app.models.user import User
 from app.models.budget_plan import BudgetPlan
@@ -43,7 +43,7 @@ async def test_budget_plan_model(test_db):
 @pytest.mark.asyncio
 async def test_expense_model(test_db):
     user_id = str(ObjectId())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     expense_dict = Expense.create_expense_dict(
         user_id, "groceries", 50.00, True, now, 12, 2024
     )
@@ -62,7 +62,7 @@ async def test_expense_model(test_db):
 @pytest.mark.asyncio
 async def test_income_model(test_db):
     user_id = str(ObjectId())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     income_dict = Income.create_income_dict(
         user_id, 3000.00, True, now, 12, 2024
     )
@@ -110,7 +110,7 @@ async def test_price_history_model(test_db):
 @pytest.mark.asyncio
 async def test_expense_query_by_user_and_month(test_db):
     user_id = str(ObjectId())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     
     expense1 = Expense.create_expense_dict(user_id, "food", 50.0, False, now, 12, 2024)
     expense2 = Expense.create_expense_dict(user_id, "transport", 30.0, False, now, 12, 2024)
@@ -141,31 +141,31 @@ async def test_budget_plan_unique_constraint(test_db):
 
 @pytest.mark.asyncio
 async def test_database_connection(test_db):
-    from app.database import get_database, Database
+    from app.database import get_database, database
     from motor.motor_asyncio import AsyncIOMotorClient
     import os
     
     # test get_database when client is set
     test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
-    original_client = Database.client
-    Database.client = AsyncIOMotorClient(test_uri)
+    original_client = database.client
+    database.client = AsyncIOMotorClient(test_uri)
     
     db = await get_database()
     assert db.name == "budgetbaddie"
     
-    Database.client.close()
-    Database.client = original_client
+    database.client.close()
+    database.client = original_client
 
 @pytest.mark.asyncio
 async def test_create_indexes(test_db):
-    from app.database import create_indexes, Database, get_database
+    from app.database import create_indexes, database, get_database
     from motor.motor_asyncio import AsyncIOMotorClient
     import os
     
     # set up database connection for create_indexes
     test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
-    original_client = Database.client
-    Database.client = AsyncIOMotorClient(test_uri)
+    original_client = database.client
+    database.client = AsyncIOMotorClient(test_uri)
     
     # create indexes - should run without error
     await create_indexes()
@@ -174,14 +174,14 @@ async def test_create_indexes(test_db):
     db = await get_database()
     assert db is not None
     
-    Database.client.close()
-    Database.client = original_client
+    database.client.close()
+    database.client = original_client
 
 @pytest.mark.asyncio
 async def test_expense_with_budget_plan_id(test_db):
     user_id = str(ObjectId())
     plan_id = str(ObjectId())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     
     expense_dict = Expense.create_expense_dict(
         user_id, "test", 50.0, False, now, 12, 2024, plan_id
@@ -198,7 +198,7 @@ async def test_expense_with_budget_plan_id(test_db):
 async def test_income_with_budget_plan_id(test_db):
     user_id = str(ObjectId())
     plan_id = str(ObjectId())
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     
     income_dict = Income.create_income_dict(
         user_id, 1000.0, False, now, 12, 2024, plan_id
@@ -210,4 +210,86 @@ async def test_income_with_budget_plan_id(test_db):
     
     response = Income.to_response(income_dict)
     assert response["budget_plan_id"] == plan_id
+
+@pytest.mark.asyncio
+async def test_connect_to_mongo_with_env_var(test_db):
+    from app.database import connect_to_mongo, database, get_database
+    import os
+    
+    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
+    original_client = database.client
+    
+    # set MONGO_URI and test connect_to_mongo
+    os.environ["MONGO_URI"] = test_uri
+    await connect_to_mongo()
+    
+    assert database.client is not None
+    db = await get_database()
+    assert db.name == "budgetbaddie"
+    
+    database.client.close()
+    database.client = original_client
+    if "MONGO_URI" in os.environ:
+        del os.environ["MONGO_URI"]
+
+@pytest.mark.asyncio
+async def test_connect_to_mongo_without_env_var(test_db):
+    from app.database import connect_to_mongo, database, get_database
+    import os
+    
+    original_client = database.client
+    original_mongo_uri = os.environ.get("MONGO_URI")
+    
+    # remove MONGO_URI to test default value
+    if "MONGO_URI" in os.environ:
+        del os.environ["MONGO_URI"]
+    
+    await connect_to_mongo()
+    
+    assert database.client is not None
+    db = await get_database()
+    assert db.name == "budgetbaddie"
+    
+    database.client.close()
+    database.client = original_client
+    
+    # restore original MONGO_URI if it existed
+    if original_mongo_uri:
+        os.environ["MONGO_URI"] = original_mongo_uri
+
+@pytest.mark.asyncio
+async def test_close_mongo_connection_with_client(test_db):
+    from app.database import close_mongo_connection, database
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import os
+    
+    test_uri = os.getenv("TEST_MONGO_URI", "mongodb://mongo:27017/budgetbaddie_test")
+    original_client = database.client
+    
+    # set up a client
+    database.client = AsyncIOMotorClient(test_uri)
+    assert database.client is not None
+    
+    # test close_mongo_connection when client exists
+    await close_mongo_connection()
+    
+    # client should be closed (but not None, just closed)
+    database.client = original_client
+
+@pytest.mark.asyncio
+async def test_close_mongo_connection_without_client(test_db):
+    from app.database import close_mongo_connection, database
+    
+    original_client = database.client
+    
+    # set client to None to test the if branch
+    database.client = None
+    
+    # test close_mongo_connection when client is None
+    await close_mongo_connection()
+    
+    # should not raise an error
+    assert database.client is None
+    
+    database.client = original_client
 

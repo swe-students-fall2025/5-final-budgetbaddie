@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 from bson import ObjectId
 
@@ -10,7 +10,7 @@ class User:
         return {
             "email": email,
             "password": hashed_password,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
             "verification_code": None,
             "password_reset_token": None,
         }

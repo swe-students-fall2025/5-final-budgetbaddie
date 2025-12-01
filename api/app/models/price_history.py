@@ -1,6 +1,5 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
-from bson import ObjectId
 
 class PriceHistory:
     collection_name = "price_history"
@@ -17,8 +16,8 @@ class PriceHistory:
             "item_url": item_url,
             "price": price,
             "source": source,
-            "date": datetime.utcnow(),
-            "created_at": datetime.utcnow(),
+            "date": datetime.now(UTC),
+            "created_at": datetime.now(UTC),
         }
     
     @staticmethod
