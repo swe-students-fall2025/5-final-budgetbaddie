@@ -1,4 +1,15 @@
 # Final Project
+<!-- CI/CD Badges -->
+![API CI](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/api.yml/badge.svg)
+![AI Service CI](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/ai-service.yml/badge.svg)
+
+<!-- DockerHub Images -->
+**DockerHub Images:**  
+- [API Container](https://hub.docker.com/repository/docker/avih7531/budgetbaddie-api/)  
+- [AI Service Container](https://hub.docker.com/repository/docker/avih7531/budgetbaddie-ai-service/)  
+
+---
+
 
 # Budget Baddie 💰
 **Spend Smart, Slay Hard!💅**
