@@ -1,4 +1,12 @@
+
+[![api ci/cd](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/api.yml/badge.svg)](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/api.yml)
+[![ai-service ci/cd](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/ai-service.yml/badge.svg)](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/ai-service.yml)
+
 # Final Project
+
+
+---
+
 
 # Budget Baddie 💰
 **Spend Smart, Slay Hard!💅**
