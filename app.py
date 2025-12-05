@@ -11,7 +11,8 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 
-client = MongoClient(os.getenv("MONGO_URI"))
+client = MongoClient(os.getenv("MONGO_URI", "mongodb://mongo:27017/budgetbaddie"))
+client = MongoClient(MONGO_URI)
 db = client["budgetbaddie"]
 
 
@@ -204,3 +205,10 @@ def add_expense():
     db.expenses.insert_one(expense)
     flash("Expense added.")
     return redirect(url_for("dashboard"))
+
+@app.route("/")
+def index():
+    return redirect(url_for("login"))
+
+if __name__ == "__main__":
+    app.run(debug=True)
