@@ -215,6 +215,13 @@ def add_expense():
     flash("Expense added.")
     return redirect(url_for("dashboard"))
 
+@app.route("/logout")
+def logout():
+
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("login"))
+
 @app.route("/")
 def index():
     return redirect(url_for("login"))

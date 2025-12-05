@@ -2,7 +2,12 @@
 <html>
 <head>
     <title>Budget Baddie</title>
+    <link rel="stylesheet" href="./static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
 </head>
+
+
 <body>
 
     {% with messages = get_flashed_messages() %}

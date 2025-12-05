@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>Hello, {{ user.email }}</h2>
+
+<div class="top-bar">
+    <h2 class="greeting">Hello, {{ user.email }}</h2>
+    <a href="{{ url_for('logout') }}" class="logout-button">
+      <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+    </a>
+</div>
 
 <!-- 以后放 graphs&lists -->
 
