@@ -1,28 +1,55 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask_mail import Mail, Message
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
+import secrets
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 
+#Reset Password
+app.config["MAIL_SERVER"]="smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
+
+mail = Mail(app)
 """ client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
 client = MongoClient(MONGO_URI)
 db = client["budgetbaddie"] """
 
-#test
-load_dotenv()
-
-app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
-
 client = MongoClient("mongodb://localhost:27017")
 db = client["budgetbaddie"]
+
+def send_reset_email(user, token):
+    reset_url = url_for("reset_password", token=token, _external=True)
+    print("DEBUG RESET URL:", reset_url)
+
+    msg = Message(
+        subject="Reset your BudgetBaddie password",
+        recipients=[user["email"]],
+    )
+    msg.body = f"""Hi, 
+    You requested a password reset.
+    Click the link below to reset your password:
+{reset_url}
+
+If you did not request this, you can ignore this email.
+"""
+    try:
+        mail.send(msg)
+        print("MAIL SENT OK")
+    except Exception as e:
+        print("MAIL ERROR:", e)
+
 
 
 def get_current_user():
@@ -80,22 +107,41 @@ import secrets
 def forgot_password():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
+        print("FORGOT PASSWORD POST, email =", email)   # 调试1：确认进来了
+
         user = db.users.find_one({"email": email})
+        print("USER FOUND? ->", bool(user))             # 调试2：确认有没有这个用户
+
         if user:
             token = secrets.token_urlsafe(32)
             db.users.update_one(
                 {"_id": user["_id"]},
                 {"$set": {"password_reset_token": token}}
             )
-            reset_url = url_for("reset_password", token=token, _external=True)
-            flash(f"Password reset link: {reset_url}")
-            # 以后再把 reset_url 发邮件
-        else:
-            flash("If this email exists, a reset link has been sent.")
 
+            # 生成 reset 链接
+            reset_url = url_for("reset_password", token=token, _external=True)
+            print("DEBUG RESET URL:", reset_url)        # 调试3：打印链接
+
+            # 开发 / demo 用：把链接显示在页面上（老师也能看到）
+            flash(f"[DEBUG] Reset link: {reset_url}")
+
+            # 真正发邮件（如果 Gmail 配好了）
+            try:
+                send_reset_email(user, token)
+                print("CALL send_reset_email DONE")
+            except Exception as e:
+                print("ERROR IN send_reset_email:", e)
+
+        else:
+            print("NO USER FOR EMAIL", email)
+
+        flash("If this email exists, a reset link has been sent.")
         return redirect(url_for("forgot_password"))
 
-    return render_template("forgot_password.html")
+    # GET 请求：只渲染页面
+    return render_template("forgot-password.html")
+
 
 #reset password token
 
@@ -116,7 +162,7 @@ def reset_password(token):
         flash("Password updated. Please log in.")
         return redirect(url_for("login"))
 
-    return render_template("reset_password.html")
+    return render_template("reset-password.html")
 
 #dashboard
 
