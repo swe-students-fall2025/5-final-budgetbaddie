@@ -107,3 +107,100 @@ def reset_password(token):
         return redirect(url_for("login"))
 
     return render_template("reset_password.html")
+
+#dashboard
+
+from datetime import date
+
+@app.route("/dashboard")
+def dashboard():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    today = date.today()
+    year, month = today.year, today.month
+
+    plan = db.budget_plans.find_one({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    })
+
+    need_budget_popup = (plan is None) or (not plan.get("is_filled", False))
+
+    # 取出本月的简单消费记录
+    expenses = list(db.expenses.find({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    }).sort("date", -1))
+
+    return render_template(
+        "dashboard.html",
+        user=user,
+        need_budget_popup=need_budget_popup,
+        expenses=expenses,
+        current_year=year,
+        current_month=month,
+    )
+
+#budget plan routes
+@app.route("/budget-plan", methods=["POST"])
+def save_budget_plan():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    year = int(request.form["year"])
+    month = int(request.form["month"])
+    total_budget = float(request.form["total_budget"])
+
+    # upsert：如果当月已有 plan 就更新；没有就创建
+    db.budget_plans.update_one(
+        {"user_id": user["_id"], "year": year, "month": month},
+        {
+            "$set": {
+                "is_filled": True,
+                "total_budget": total_budget,
+                "updated_at": datetime.utcnow(),
+            },
+            "$setOnInsert": {"created_at": datetime.utcnow()},
+        },
+        upsert=True,
+    )
+
+    flash("Monthly budget saved.")
+    return redirect(url_for("dashboard"))
+
+#add expenese
+
+@app.route("/expenses/add", methods=["POST"])
+def add_expense():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    date_str = request.form["date"]
+    category = request.form["category"]
+    amount = float(request.form["amount"])
+    is_recurring = "is_recurring" in request.form
+
+    dt = datetime.fromisoformat(date_str)
+    year, month = dt.year, dt.month
+
+    expense = {
+        "user_id": user["_id"],
+        "budget_plan_id": None,  # 以后可以根据当月 plan 关联
+        "category": category,
+        "amount": amount,
+        "is_recurring": is_recurring,
+        "date": dt,
+        "month": month,
+        "year": year,
+        "created_at": datetime.utcnow(),
+    }
+
+    db.expenses.insert_one(expense)
+    flash("Expense added.")
+    return redirect(url_for("dashboard"))
