@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block meta %}
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% endblock %}
+
+
+    {% block title %}
+    <!-- <title>- page title </title> -->
+    {% endblock %}
+
+    {% block stylesheets %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="./static/menu_style.css">
+    <link rel="stylesheet" href="./static/homestyle.css">
+    {% endblock %}
+    
+</head>
+<!-- body code start -->
+<body>
+    {% block navbar %}
+    
+    <header class="d-flex justify-content-between align-items-center p-3 bg-light shadow">
+        <!-- Add the navigation bar here -->
+        <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background-color: #023c41;">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTogglerDemo03" aria-controls="navbarTogglerDemo03" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="{{ url_for('home') }}">
+            <div class="logo fw-bold fs-3 text-white"></div>
+                    <img src="./static/login-bg.png" 
+                    alt="Logo" width="40" height="40" class="me-2">
+                    CID An Education Hub
+                </div>
+            </a>
+          
+            <div class="collapse navbar-collapse" id="navbarTogglerDemo03">
+              <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
+                <li class="nav-item"><a class="nav-link btn btn-primary text-start" href="#contact"><i class="fa-solid fa-envelope"></i>Contact</a></li>
+                    <li class="nav-item"><a class="nav-link btn btn-primary text-start" href="#about"><i class="fa-solid fa-circle-info"></i>About Us</a></li>
+                    
+              </ul>
+              
+              <div class="profile-container position-relative">
+                <div class="user">
+                    <img src="./static/profile.png" alt="Profile" class="rounded-circle profile-pic" width="40" height="40" onclick="toggleProfileMenu()">
+                <span class="mb-1 animate-character">{{ username }}!</span>
+                
+                </div>
+                <div id="profile-menu" class="dropdown-menu profile-menu hidden position-absolute bg-white shadow p-2 rounded">
+                    
+                    <a class="profile-dropdown-item dropdown-item " data-bs-toggle="modal" data-bs-target="#profileModal" href="#"><i class="fa-regular fa-user"></i> My Profile</a>
+                    <a class="profile-dropdown-item dropdown-item " data-bs-toggle="modal" data-bs-target="#changePasswordModal" href="#"><i class="fa-regular fa-keyboard"></i> Change Password</a>
+                    <a class="profile-logouts dropdown-item btn btn-danger btn-sm" href="{{ url_for('logout') }}"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+                    
+                </div>
+
+            </div>
+            </div>
+          </nav>
+
+          {% endblock %}
+        
+        
+    </header>
+{% block content %}
+<!-- Content of the specific page goes here -->
+{% endblock %}
+
+
+{% block footer %}
+    <footer class="text-center py-3 bg-dark text-white">
+        <p>&copy; 2025 CID An Education Hub. All rights reserved. </p>
+    </footer>
+{% endblock %}
+    
+    
+{% block togglescripts %}
+    <script>
+        function toggleProfileMenu() {
+            const menu = document.getElementById("profile-menu");
+            menu.classList.toggle("show");
+        }
+    </script>
+    <script defer src="../static/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+</body>
+</html>
