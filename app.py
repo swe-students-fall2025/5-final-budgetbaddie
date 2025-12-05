@@ -11,8 +11,17 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 
-client = MongoClient(os.getenv("MONGO_URI", "mongodb://mongo:27017/budgetbaddie"))
+""" client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
 client = MongoClient(MONGO_URI)
+db = client["budgetbaddie"] """
+
+#test
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+
+client = MongoClient("mongodb://localhost:27017")
 db = client["budgetbaddie"]
 
 
