@@ -4,6 +4,13 @@
 
 <div class="top-bar">
     <h2 class="greeting">Hello, {{ user.email }}</h2>
+
+    <div class="top-icons"></div>
+    <button id="open-budget-modal" class="icon-button">
+    <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
+  </button>
+
+
     <a href="{{ url_for('logout') }}" class="logout-button">
       <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
     </a>
@@ -13,20 +20,125 @@
 
 <div id="budget-modal" class="modal {% if need_budget_popup %}show{% endif %}">
   <div class="modal-content">
-    <h3>Set your budget for {{ current_month }}/{{ current_year }}</h3>
-    <form method="POST" action="{{ url_for('save_budget_plan') }}">
+    <h3>
+      Budget for {{ current_month }}/{{ current_year }}
+      {% if plan and plan.is_locked %}(Locked){% endif %}
+    </h3>
+
+    <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
       <input type="hidden" name="year" value="{{ current_year }}">
       <input type="hidden" name="month" value="{{ current_month }}">
 
-      <label>Total monthly budget</label>
-      <input type="number" step="0.01" name="total_budget" required>
+      <!-- json -->
+      <input type="hidden" name="categories_json" id="categories-json">
+
+      <!-- category drop down and type input -->
+      <div class="field-row">
+        <label>Category</label>
+        <select id="category-select" {% if not can_edit_budget %}disabled{% endif %}>
+          <option value="" disabled selected>Choose existing category</option>
+          <option value="Rent">Rent</option>
+          <option value="Groceries">Groceries</option>
+          <option value="Transport">Transport</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="New">+ New category...</option>
+        </select>
+
+        <input
+          type="text"
+          id="new-category-input"
+          placeholder="New category name"
+          style="display:none;"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+      </div>
+
+      <!-- Enter amount for the current category -->
+      <div class="field-row">
+        <label>Amount for this category</label>
+        <input
+          type="number"
+          step="0.01"
+          id="category-amount-input"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+        <button
+          type="button"
+          id="add-category-btn"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+          Add to plan
+        </button>
+      </div>
+
+      <!-- display current catgeories -->
+      <div class="field-row">
+        <h4>Current category budgets</h4>
+        <table id="category-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Amount</th>
+              {% if can_edit_budget %}
+              <th>Actions</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            <!-- JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="field-row">
+        <label>Total monthly budget</label>
+        <input
+          type="number"
+          step="0.01"
+          name="total_budget"
+          id="total-budget-input"
+          placeholder="Auto sum of categories..."
+          value="{{ plan.total_budget if plan else '' }}"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+        <small>Current total amount; click and type to adjust. </small>
+      </div>
+
+      {% if can_edit_budget %}
+      <div class="field-row">
+        <label>
+          <input type="checkbox" name="lock_budget">
+          Lock this month's budget
+        </label>
+        <small>!!!Once locked, you cannot make changes to the budget this month!!!</small>
+      </div>
 
       <button type="submit">Save</button>
+      {% else %}
+      <p>This month's budget is locked. You can only view it.</p>
+      {% endif %}
     </form>
+
+    <button type="button" id="close-budget-modal" class="close-btn">Close</button>
   </div>
 </div>
 
+
 <!--check-->>
+{% if not need_budget_popup %}
+<section class="budget-diagram">
+  <h3>This Month's Budget</h3>
+  <!-- 这里先放一个占位，之后你可以用 JS 画图 -->
+  <div id="budget-chart">
+    <p>Total budget: {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
+    <!-- 将来放图：例如饼图/柱状图 -->
+  </div>
+</section>
+{% endif %}
+
+<!-- add expense -->
+
+{% if not need_budget_popup %}
 <section class="add-expense">
   <h3>Add Expense</h3>
   <form method="POST" action="{{ url_for('add_expense') }}">
@@ -71,6 +183,175 @@
     </tbody>
   </table>
 </section>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const modal = document.getElementById("budget-modal");
+  const openBtn = document.getElementById("open-budget-modal");
+  const closeBtn = document.getElementById("close-budget-modal");
+
+  function openModal() {
+    if (modal) modal.classList.add("show");
+  }
+
+  function closeModal() {
+    if (modal) modal.classList.remove("show");
+  }
+
+  // 点击 budget 图标 → 打开
+  if (openBtn) {
+    openBtn.addEventListener("click", function () {
+      openModal();
+    });
+  }
+
+  // 点击 Close 按钮 → 关闭
+  if (closeBtn) {
+    closeBtn.addEventListener("click", function () {
+      closeModal();
+    });
+  }
+
+  // 点击遮罩空白区域 → 关闭
+  if (modal) {
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal) {
+        closeModal();
+      }
+    });
+  }
+
+  // 不再在 JS 里判断 need_budget_popup，自动弹出交给 HTML + CSS 处理
+});
+</script>
+
+
+
+
+
+
+<!-- new categories! -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const categorySelect = document.getElementById("category-select");
+  const newCategoryInput = document.getElementById("new-category-input");
+  const categoryAmountInput = document.getElementById("category-amount-input");
+  const addCategoryBtn = document.getElementById("add-category-btn");
+  const categoryTableBody = document.querySelector("#category-table tbody");
+  const totalBudgetInput = document.getElementById("total-budget-input");
+  const categoriesJsonInput = document.getElementById("categories-json");
+  const budgetForm = document.getElementById("budget-form");
+
+  let categories = [];
+  let totalEditedManually = false;
+
+  categorySelect.addEventListener("change", function () {
+    if (this.value === "New") {
+      newCategoryInput.style.display = "inline-block";
+      newCategoryInput.focus();
+    } else {
+      newCategoryInput.style.display = "none";
+    }
+  });
+
+  addCategoryBtn.addEventListener("click", function () {
+    let categoryName = "";
+
+    if (categorySelect.value === "New") {
+      categoryName = newCategoryInput.value.trim();
+    } else {
+      categoryName = categorySelect.value;
+    }
+
+    const amountValue = parseFloat(categoryAmountInput.value);
+
+    if (!categoryName) {
+      alert("Please choose or enter a category name.");
+      return;
+    }
+    if (isNaN(amountValue) || amountValue <= 0) {
+      alert("Please enter a valid positive amount.");
+      return;
+    }
+    if (editingIndex !== null) {
+      categories[editingIndex] = { category: categoryName, amount: amountValue };
+      editingIndex = null;
+    } else {
+      const existing = categories.find(c => c.category === categoryName);
+      if (existing) {
+        existing.amount = amountValue;
+      } else {
+        categories.push({ category: categoryName, amount: amountValue });
+      }
+    }
+
+    categoryAmountInput.value = "";
+    if (categorySelect.value === "New") {
+      newCategoryInput.value = "";
+    }
+
+    renderCategoryTable();
+    updateTotalIfNotEdited();
+  });
+
+  function renderCategoryTable() {
+    categoryTableBody.innerHTML = "";
+    categories.forEach(item => {
+      const tr = document.createElement("tr");
+      const tdName = document.createElement("td");
+      const tdAmount = document.createElement("td");
+
+      tdName.textContent = item.category;
+      tdAmount.textContent = item.amount.toFixed(2);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdAmount);
+      categoryTableBody.appendChild(tr);
+    });
+  }
+
+  function getCategoriesSum() {
+    return categories.reduce((sum, c) => sum + (c.amount || 0), 0);
+  }
+
+  function updateTotalIfNotEdited() {
+    if (!totalEditedManually) {
+      const sum = getCategoriesSum();
+      if (sum > 0) {
+        totalBudgetInput.value = sum.toFixed(2);
+      }
+    }
+  }
+
+  totalBudgetInput.addEventListener("focus", function () {
+    totalEditedManually = true;
+  });
+
+  totalBudgetInput.addEventListener("blur", function () {
+    const manualTotal = parseFloat(totalBudgetInput.value);
+    const sum = getCategoriesSum();
+
+    if (!isNaN(manualTotal) && manualTotal > sum) {
+      const extraAmount = manualTotal - sum;
+
+      const existingExtra = categories.find(c => c.category === "extra");
+      if (existingExtra) {
+        existingExtra.amount += extraAmount;
+      } else {
+        categories.push({ category: "extra", amount: extraAmount });
+      }
+      renderCategoryTable();
+    }
+  });
+
+  budgetForm.addEventListener("submit", function () {
+    categoriesJsonInput.value = JSON.stringify(categories);
+  });
+});
+</script>
+
 
 
 {% endblock %}

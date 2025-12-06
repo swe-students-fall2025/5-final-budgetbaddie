@@ -7,6 +7,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
 import secrets
+import json
+from datetime import date
 
 load_dotenv()
 
@@ -183,7 +185,13 @@ def dashboard():
         "month": month
     })
 
-    need_budget_popup = (plan is None) or (not plan.get("is_filled", False))
+    # check if budget is filled
+    is_filled = bool(plan and plan.get("is_filled", False))
+    # check if budget is locked
+    is_locked = bool(plan and plan.get("is_locked", False))
+
+    need_budget_popup = not is_filled
+    can_edit_budget = not is_locked
 
     # 取出本月的简单消费记录
     expenses = list(db.expenses.find({
@@ -196,9 +204,11 @@ def dashboard():
         "dashboard.html",
         user=user,
         need_budget_popup=need_budget_popup,
+        can_edit_budget = can_edit_budget,
         expenses=expenses,
         current_year=year,
         current_month=month,
+        plan = plan, #add popup function?
     )
 
 #budget plan routes
@@ -210,7 +220,55 @@ def save_budget_plan():
 
     year = int(request.form["year"])
     month = int(request.form["month"])
-    total_budget = float(request.form["total_budget"])
+
+    old_plan = db.budget_plans.find_one({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    })
+
+    # total_budget 是总预算，可以是自动算出来，也可以是用户改过的!!
+    total_budget = float(request.form.get("total_budget", 0) or 0)
+    user_click_lock = "lock_budget" in request.form
+    old_locked = bool(old_plan and old_plan.get("is_locked", False))
+    new_locked = old_locked or user_click_lock
+
+    #前端塞进来的 JSON 字符串
+    raw = request.form.get("categories_json", "[]")
+    try:
+        categories_list = json.loads(raw)
+    except json.JSONDecodeError:
+        categories_list = []
+
+    # 转成 {category: amount} 的 dict
+    category_budgets = {}
+    for item in categories_list:
+        name = item.get("category")
+        try:
+            amount = float(item.get("amount", 0) or 0)
+        except ValueError:
+            amount = 0
+        if name:
+            category_budgets[name] = amount
+
+    # 如果当月已有 plan 就更新；没有就创建
+    db.budget_plans.update_one(
+        {"user_id": user["_id"], "year": year, "month": month},
+        {
+            "$set": {
+                "is_filled": True,
+                "is_locked": new_locked,
+                "total_budget": total_budget,
+                "category_budgets": category_budgets, 
+                "updated_at": datetime.utcnow(),
+            },
+            "$setOnInsert": {"created_at": datetime.utcnow()},
+        },
+        upsert=True,
+    )
+
+    flash("Monthly budget saved.")
+    return redirect(url_for("dashboard"))
 
     # upsert：如果当月已有 plan 就更新；没有就创建
     db.budget_plans.update_one(
