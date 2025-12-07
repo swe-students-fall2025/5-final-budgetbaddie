@@ -68,11 +68,14 @@ When code is pushed to `main`:
 
 ### Required GitHub Secrets
 - `DOCKER_USERNAME` / `DOCKER_PASSWORD` - DockerHub credentials
-- `MONGO_URI` - MongoDB connection string
+- `MONGO_URI` - MongoDB connection string (format: `mongodb://<droplet-ip>:27017/budgetbaddie`)
 - `SECRET_KEY` - Flask session secret
 - `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_DEFAULT_SENDER` - Email configuration
 - `GOOGLE_AI_API_KEY` - Google AI API key
 - `DO_HOST` / `DO_USERNAME` / `DO_SSH_KEY` - Digital Ocean deployment credentials
+
+### Production MongoDB Setup
+MongoDB runs as a systemd service (`mongod`) directly on the Digital Ocean droplet, not as a Docker container. The service listens on port `27017` and is accessible to all application containers via the droplet's IP address. The `MONGO_URI` secret should point to `mongodb://<droplet-ip>:27017/budgetbaddie`.
 
 ---
 
