@@ -25,11 +25,10 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
 
 mail = Mail(app)
-""" client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
-client = MongoClient(MONGO_URI)
-db = client["budgetbaddie"] """
 
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection - uses MONGO_URI environment variable or defaults to localhost
+mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
+client = MongoClient(mongo_uri)
 db = client["budgetbaddie"]
 
 def send_reset_email(user, token):
@@ -359,4 +358,5 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)

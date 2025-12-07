@@ -1,9 +1,15 @@
 from .schemas import AdviceRequest, AdviceResponse, CategorySummary
 from google import genai
 import json
+import os
 
 
-client = genai.Client()
+# Initialize client only if API key is available
+api_key = os.getenv("GOOGLE_AI_API_KEY")
+if api_key:
+    client = genai.Client(api_key=api_key)
+else:
+    client = None
 MODEL_NAME = "gemini-2.5-flash"
 
 
@@ -72,6 +78,17 @@ def generate_advice(req: AdviceRequest) -> AdviceResponse:
     Call Gemini with the budget snapshot + question and turn its JSON reply
     into our AdviceResponse model.
     """
+    if not client:
+        return AdviceResponse(
+            recommendation="WAIT",
+            explanation=(
+                "AI service is not configured. Please set GOOGLE_AI_API_KEY environment variable. "
+                "For now, we recommend waiting to make this purchase."
+            ),
+            top_categories=[],
+            suggested_monthly_savings=None,
+        )
+    
     prompt = build_prompt(req)
 
     response = client.models.generate_content(
