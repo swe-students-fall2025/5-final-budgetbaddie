@@ -21,24 +21,8 @@ services:
   ai-service:
     build: ./ai-service
     container_name: budget-ai-service
-    environment:
-      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
     ports:
       - "8001:8001"
-
-  web:
-    build: .
-    container_name: budget-web
-    depends_on:
-      - mongo
-    environment:
-      MONGO_URI: "mongodb://mongo:27017/budgetbaddie"
-      SECRET_KEY: ${SECRET_KEY:-dev-secret}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-}
-    ports:
-      - "5000:5000"
 
 volumes:
   mongo_data:
