@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
-
 <div class="top-bar">
-    <h2 class="greeting">Hello, {{ user.email }}</h2>
+  <h2 class="greeting">Hello, {{ user.email }}</h2>
 
-    <div class="top-icons"></div>
+  <div class="top-icons">
     <button id="open-budget-modal" class="icon-button">
-    <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
-  </button>
-
+      <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
+    </button>
 
     <a href="{{ url_for('logout') }}" class="logout-button">
       <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
     </a>
+  </div>
 </div>
 
-<!-- 以后放 graphs&lists -->
-
+<!-- Budget modal -->
 <div id="budget-modal" class="modal {% if need_budget_popup %}show{% endif %}">
   <div class="modal-content">
     <h3>
@@ -29,10 +27,10 @@
       <input type="hidden" name="year" value="{{ current_year }}">
       <input type="hidden" name="month" value="{{ current_month }}">
 
-      <!-- json -->
+      <!-- JSON for category budgets -->
       <input type="hidden" name="categories_json" id="categories-json">
 
-      <!-- category drop down and type input -->
+      <!-- Category dropdown + New category input -->
       <div class="field-row">
         <label>Category</label>
         <select id="category-select" {% if not can_edit_budget %}disabled{% endif %}>
@@ -53,7 +51,7 @@
         >
       </div>
 
-      <!-- Enter amount for the current category -->
+      <!-- Amount input -->
       <div class="field-row">
         <label>Amount for this category</label>
         <input
@@ -71,7 +69,7 @@
         </button>
       </div>
 
-      <!-- display current catgeories -->
+      <!-- Category table -->
       <div class="field-row">
         <h4>Current category budgets</h4>
         <table id="category-table">
@@ -85,11 +83,12 @@
             </tr>
           </thead>
           <tbody>
-            <!-- JS -->
+            <!-- Filled by JS -->
           </tbody>
         </table>
       </div>
 
+      <!-- Total budget (auto sum, but editable) -->
       <div class="field-row">
         <label>Total monthly budget</label>
         <input
@@ -101,16 +100,20 @@
           value="{{ plan.total_budget if plan else '' }}"
           {% if not can_edit_budget %}disabled{% endif %}
         >
-        <small>Current total amount; click and type to adjust. </small>
       </div>
 
       {% if can_edit_budget %}
       <div class="field-row">
-        <label>
-          <input type="checkbox" name="lock_budget">
-          Lock this month's budget
+        <label class="lock-wrapper">
+          <input type="checkbox" name="lock_budget" id="lock-budget-checkbox">
+          <img
+            src="{{ url_for('static', filename='lock.png') }}"
+            alt="Lock"
+            class="lock-icon"
+            title="Click to lock the budget amount, you won't be able to make changes until next month!"
+          >
+          <span>Lock this month's budget</span>
         </label>
-        <small>!!!Once locked, you cannot make changes to the budget this month!!!</small>
       </div>
 
       <button type="submit">Save</button>
@@ -123,21 +126,17 @@
   </div>
 </div>
 
-
-<!--check-->>
+<!-- 简单预算总览（非弹窗） -->
 {% if not need_budget_popup %}
 <section class="budget-diagram">
   <h3>This Month's Budget</h3>
-  <!-- 这里先放一个占位，之后你可以用 JS 画图 -->
   <div id="budget-chart">
     <p>Total budget: {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
-    <!-- 将来放图：例如饼图/柱状图 -->
   </div>
 </section>
 {% endif %}
 
-<!-- add expense -->
-
+<!-- Expense 部分保留 -->
 {% if not need_budget_popup %}
 <section class="add-expense">
   <h3>Add Expense</h3>
@@ -185,9 +184,10 @@
 </section>
 {% endif %}
 
+<!-- 所有 JS 合并到一个 DOMContentLoaded 里 -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-
+  // ====== Modal open / close ======
   const modal = document.getElementById("budget-modal");
   const openBtn = document.getElementById("open-budget-modal");
   const closeBtn = document.getElementById("close-budget-modal");
@@ -195,26 +195,16 @@ document.addEventListener("DOMContentLoaded", function () {
   function openModal() {
     if (modal) modal.classList.add("show");
   }
-
   function closeModal() {
     if (modal) modal.classList.remove("show");
   }
 
-  // 点击 budget 图标 → 打开
   if (openBtn) {
-    openBtn.addEventListener("click", function () {
-      openModal();
-    });
+    openBtn.addEventListener("click", openModal);
   }
-
-  // 点击 Close 按钮 → 关闭
   if (closeBtn) {
-    closeBtn.addEventListener("click", function () {
-      closeModal();
-    });
+    closeBtn.addEventListener("click", closeModal);
   }
-
-  // 点击遮罩空白区域 → 关闭
   if (modal) {
     modal.addEventListener("click", function (event) {
       if (event.target === modal) {
@@ -223,91 +213,180 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // 不再在 JS 里判断 need_budget_popup，自动弹出交给 HTML + CSS 处理
-});
-</script>
-
-
-
-
-
-
-<!-- new categories! -->
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const categorySelect = document.getElementById("category-select");
-  const newCategoryInput = document.getElementById("new-category-input");
+  // ====== Budget categories logic ======
+  const categorySelect      = document.getElementById("category-select");
+  const newCategoryInput    = document.getElementById("new-category-input");
   const categoryAmountInput = document.getElementById("category-amount-input");
-  const addCategoryBtn = document.getElementById("add-category-btn");
-  const categoryTableBody = document.querySelector("#category-table tbody");
-  const totalBudgetInput = document.getElementById("total-budget-input");
+  const addCategoryBtn      = document.getElementById("add-category-btn");
+  const categoryTableBody   = document.querySelector("#category-table tbody");
+  const totalBudgetInput    = document.getElementById("total-budget-input");
   const categoriesJsonInput = document.getElementById("categories-json");
-  const budgetForm = document.getElementById("budget-form");
+  const budgetForm          = document.getElementById("budget-form");
 
   let categories = [];
   let totalEditedManually = false;
+  let editingIndex = null;
 
-  categorySelect.addEventListener("change", function () {
-    if (this.value === "New") {
-      newCategoryInput.style.display = "inline-block";
-      newCategoryInput.focus();
-    } else {
-      newCategoryInput.style.display = "none";
-    }
-  });
+  // 从后端加载已有的 category_budgets
+  const initialCategoryBudgets = {{ plan.category_budgets | default({}) | tojson }};
 
-  addCategoryBtn.addEventListener("click", function () {
-    let categoryName = "";
+  for (const [name, amount] of Object.entries(initialCategoryBudgets)) {
+    categories.push({
+      category: name,
+      amount: Number(amount) || 0
+    });
+  }
 
-    if (categorySelect.value === "New") {
-      categoryName = newCategoryInput.value.trim();
-    } else {
-      categoryName = categorySelect.value;
-    }
-
-    const amountValue = parseFloat(categoryAmountInput.value);
-
-    if (!categoryName) {
-      alert("Please choose or enter a category name.");
-      return;
-    }
-    if (isNaN(amountValue) || amountValue <= 0) {
-      alert("Please enter a valid positive amount.");
-      return;
-    }
-    if (editingIndex !== null) {
-      categories[editingIndex] = { category: categoryName, amount: amountValue };
-      editingIndex = null;
-    } else {
-      const existing = categories.find(c => c.category === categoryName);
-      if (existing) {
-        existing.amount = amountValue;
+  // 下拉选择“New” → 显示输入框
+  if (categorySelect) {
+    categorySelect.addEventListener("change", function () {
+      if (this.value === "New") {
+        newCategoryInput.style.display = "inline-block";
+        newCategoryInput.focus();
       } else {
-        categories.push({ category: categoryName, amount: amountValue });
+        newCategoryInput.style.display = "none";
       }
-    }
+    });
+  }
 
-    categoryAmountInput.value = "";
-    if (categorySelect.value === "New") {
-      newCategoryInput.value = "";
-    }
+  // 添加 / 更新 category
+    if (addCategoryBtn) {
+    addCategoryBtn.addEventListener("click", function () {
+      const amountValue = parseFloat(categoryAmountInput.value);
 
-    renderCategoryTable();
-    updateTotalIfNotEdited();
-  });
+      if (isNaN(amountValue) || amountValue <= 0) {
+        alert("Please enter a valid positive amount.");
+        return;
+      }
+
+      let categoryName;
+
+      if (editingIndex !== null) {
+        // ✏️ 编辑状态：只改金额，不改类别
+        categoryName = categories[editingIndex].category;
+        categories[editingIndex].amount = amountValue;
+
+        // 结束编辑，恢复输入控件
+        editingIndex = null;
+        if (categorySelect) {
+          categorySelect.disabled = false;
+          categorySelect.value = "";
+        }
+        if (newCategoryInput) {
+          newCategoryInput.disabled = false;
+          newCategoryInput.value = "";
+          newCategoryInput.style.display = "none";
+        }
+      } else {
+        // ➕ 新增状态：需要一个类别
+        if (categorySelect.value === "New") {
+          categoryName = newCategoryInput.value.trim();
+        } else {
+          categoryName = categorySelect.value;
+        }
+
+        if (!categoryName) {
+          alert("Please choose or enter a category name.");
+          return;
+        }
+
+        const existing = categories.find(c => c.category === categoryName);
+        if (existing) {
+          existing.amount = amountValue;
+        } else {
+          categories.push({ category: categoryName, amount: amountValue });
+        }
+
+        // 清理类别输入
+        if (categorySelect) categorySelect.value = "";
+        if (newCategoryInput) {
+          newCategoryInput.value = "";
+          newCategoryInput.style.display = "none";
+        }
+      }
+
+      // 清理金额输入
+      categoryAmountInput.value = "";
+
+      renderCategoryTable();
+      updateTotalIfNotEdited();
+    });
+  }
+
 
   function renderCategoryTable() {
+    if (!categoryTableBody) return;
     categoryTableBody.innerHTML = "";
-    categories.forEach(item => {
-      const tr = document.createElement("tr");
-      const tdName = document.createElement("td");
-      const tdAmount = document.createElement("td");
 
+    categories.forEach((item, index) => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
       tdName.textContent = item.category;
+
+      const tdAmount = document.createElement("td");
       tdAmount.textContent = item.amount.toFixed(2);
 
       tr.appendChild(tdName);
       tr.appendChild(tdAmount);
+
+      {% if can_edit_budget %}
+      // Actions: Edit / Delete
+      const tdActions = document.createElement("td");
+
+      // Edit button
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "icon-button edit-btn";
+      const editImg = document.createElement("img");
+      editImg.src = "{{ url_for('static', filename='edit.png') }}";
+      editImg.alt = "Edit";
+      editBtn.appendChild(editImg);
+
+      editBtn.addEventListener("click", function () {
+        editingIndex = index;
+        if (categoryAmountInput) {
+          categoryAmountInput.value = item.amount.toFixed(2);
+        }
+        // 不允许在编辑中改 category 名
+        if (categorySelect) {
+          categorySelect.value = "";
+          categorySelect.disabled = true;
+        }
+        if (newCategoryInput) {
+          newCategoryInput.disabled = true;
+          newCategoryInput.style.display = "none";
+        }
+      });
+
+      // Delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "icon-button delete-btn";
+      const deleteImg = document.createElement("img");
+      deleteImg.src = "{{ url_for('static', filename='delete.png') }}";
+      deleteImg.alt = "Delete";
+      deleteBtn.appendChild(deleteImg);
+
+      deleteBtn.addEventListener("click", function () {
+        categories.splice(index, 1);
+        if (editingIndex === index) {
+          editingIndex = null;
+          if (categoryAmountInput) categoryAmountInput.value = "";
+        }
+        if (categorySelect) categorySelect.disabled = false;
+        if (newCategoryInput) newCategoryInput.disabled = false;
+
+        totalEditedManually = false;
+        renderCategoryTable();
+        updateTotalIfNotEdited();
+      });
+
+      tdActions.appendChild(editBtn);
+      tdActions.appendChild(deleteBtn);
+      tr.appendChild(tdActions);
+      {% endif %}
+
       categoryTableBody.appendChild(tr);
     });
   }
@@ -317,7 +396,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updateTotalIfNotEdited() {
-    if (!totalEditedManually) {
+    if (!totalEditedManually && totalBudgetInput) {
       const sum = getCategoriesSum();
       if (sum > 0) {
         totalBudgetInput.value = sum.toFixed(2);
@@ -325,33 +404,40 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  totalBudgetInput.addEventListener("focus", function () {
-    totalEditedManually = true;
-  });
+  if (totalBudgetInput) {
+    totalBudgetInput.addEventListener("focus", function () {
+      totalEditedManually = true;
+    });
 
-  totalBudgetInput.addEventListener("blur", function () {
-    const manualTotal = parseFloat(totalBudgetInput.value);
-    const sum = getCategoriesSum();
+    totalBudgetInput.addEventListener("blur", function () {
+      const manualTotal = parseFloat(totalBudgetInput.value);
+      const sum = getCategoriesSum();
 
-    if (!isNaN(manualTotal) && manualTotal > sum) {
-      const extraAmount = manualTotal - sum;
-
-      const existingExtra = categories.find(c => c.category === "extra");
-      if (existingExtra) {
-        existingExtra.amount += extraAmount;
-      } else {
-        categories.push({ category: "extra", amount: extraAmount });
+      if (!isNaN(manualTotal) && manualTotal > sum) {
+        const extraAmount = manualTotal - sum;
+        const existingExtra = categories.find(c => c.category === "extra");
+        if (existingExtra) {
+          existingExtra.amount += extraAmount;
+        } else {
+          categories.push({ category: "extra", amount: extraAmount });
+        }
+        renderCategoryTable();
       }
-      renderCategoryTable();
-    }
-  });
+    });
+  }
 
-  budgetForm.addEventListener("submit", function () {
-    categoriesJsonInput.value = JSON.stringify(categories);
-  });
+  if (budgetForm) {
+    budgetForm.addEventListener("submit", function () {
+      if (categoriesJsonInput) {
+        categoriesJsonInput.value = JSON.stringify(categories);
+      }
+    });
+  }
+
+  // 页面一加载就把已有预算渲染出来
+  renderCategoryTable();
+  updateTotalIfNotEdited();
 });
 </script>
-
-
 
 {% endblock %}
