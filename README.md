@@ -64,6 +64,7 @@ When code is pushed to `main`:
 - **Web**: `budget-web` container on port `5000`
 - **API**: `budget-api` container on port `8000`
 - **AI Service**: `budget-ai-service` container on port `8001`
+- **MongoDB**: Systemd service (`mongod`) running directly on the droplet on port `27017`
 
 ### Required GitHub Secrets
 - `DOCKER_USERNAME` / `DOCKER_PASSWORD` - DockerHub credentials
