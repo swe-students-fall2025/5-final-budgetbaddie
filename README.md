@@ -1,7 +1,6 @@
 
 [![api ci/cd](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/api.yml/badge.svg)](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/api.yml)
 [![ai-service ci/cd](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/ai-service.yml/badge.svg)](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/ai-service.yml)
-[![web ci/cd](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/web.yml/badge.svg)](https://github.com/swe-students-fall2025/5-final-budgetbaddie/actions/workflows/web.yml)
 
 # Final Project
 
@@ -41,11 +40,9 @@ An AI powered budgeting app that helps you say YES to:
 ## Prerequisites
 
 - **Docker** and **Docker Compose** installed
-- No Python installation required - everything runs in Docker!
+- For local development: **Python 3.11+**
 
-## Local Development
-
-### Quick Start
+## Quick Start
 
 1. **Clone the repository:**
 ```bash
@@ -53,26 +50,18 @@ git clone <repository-url>
 cd 5-final-budgetbaddie
 ```
 
-2. **Start all services with a single command:**
+2. **Start all services:**
 ```bash
 docker compose up -d
 ```
 
-This single command starts all services:
+This starts:
 - **MongoDB** on port `27017`
-- **Web service (Flask)** on port `5000`
-- **API service (FastAPI)** on port `8000`
-- **AI service (FastAPI)** on port `8001`
+- **API service** on port `8000`
+- **AI service** on port `8001`
 
-3. **Access the application:**
-- Open your browser and navigate to `http://localhost:5000`
-- The web interface is now running and connected to all backend services
-
-4. **Verify services are running:**
+3. **Verify services are running:**
 ```bash
-# Check web service (Flask)
-curl http://localhost:5000/
-
 # Check API health
 curl http://localhost:8000/health
 
@@ -80,93 +69,9 @@ curl http://localhost:8000/health
 curl http://localhost:8001/health
 ```
 
-5. **View logs:**
-```bash
-# View all service logs
-docker compose logs -f
-
-# View logs for a specific service
-docker compose logs -f web
-docker compose logs -f api
-docker compose logs -f ai-service
-```
-
-6. **Stop services:**
+4. **Stop services:**
 ```bash
 docker compose down
-```
-
-### Local Development Workflow
-
-- **No virtual environment needed** - all dependencies are in Docker containers
-- **No manual service startup** - `docker compose up` handles everything
-- **Hot reload**: For development, you can mount volumes to enable live code reloading (see docker-compose.yml)
-- **Database access**: MongoDB is accessible at `mongodb://localhost:27017/budgetbaddie` from your host machine
-
-## Production Deployment
-
-### CI/CD Pipeline
-
-The application uses GitHub Actions for automated CI/CD. When code is pushed to the `main` or `master` branch:
-
-1. **Automated Testing**: All services run their test suites
-2. **Docker Image Build**: Each service builds its Docker image
-3. **Push to DockerHub**: Images are tagged and pushed to DockerHub
-4. **Deploy to Digital Ocean**: Services are automatically deployed to the Digital Ocean droplet
-
-### Production Services
-
-All three services are deployed as separate containers on Digital Ocean:
-- **Web service**: `budget-web` container on port `5000`
-- **API service**: `budget-api` container on port `8000`
-- **AI service**: `budget-ai-service` container on port `8001`
-
-### GitHub Secrets Required
-
-The following secrets must be configured in GitHub for production deployment:
-- `DOCKER_USERNAME` - DockerHub username
-- `DOCKER_PASSWORD` - DockerHub password
-- `MONGO_URI` - MongoDB connection string for production
-- `SECRET_KEY` - Flask secret key for sessions
-- `MAIL_USERNAME` - Email username for password reset
-- `MAIL_PASSWORD` - Email password for password reset
-- `MAIL_DEFAULT_SENDER` - Default email sender address
-- `DO_HOST` - Digital Ocean droplet IP address
-- `DO_USERNAME` - SSH username for deployment
-- `DO_SSH_KEY` - SSH private key for deployment
-
-### Manual Production Deployment
-
-If you need to manually deploy:
-
-```bash
-# SSH into Digital Ocean droplet
-ssh $DO_USERNAME@$DO_HOST
-
-# Pull latest images
-docker pull $DOCKER_USERNAME/budgetbaddie-web:latest
-docker pull $DOCKER_USERNAME/budgetbaddie-api:latest
-docker pull $DOCKER_USERNAME/budgetbaddie-ai-service:latest
-
-# Stop and remove old containers
-docker stop budget-web budget-api budget-ai-service || true
-docker rm budget-web budget-api budget-ai-service || true
-
-# Start new containers with environment variables
-docker run -d --name budget-web -p 5000:5000 \
-  --env MONGO_URI=$MONGO_URI \
-  --env SECRET_KEY=$SECRET_KEY \
-  --env MAIL_USERNAME=$MAIL_USERNAME \
-  --env MAIL_PASSWORD=$MAIL_PASSWORD \
-  --env MAIL_DEFAULT_SENDER=$MAIL_DEFAULT_SENDER \
-  $DOCKER_USERNAME/budgetbaddie-web:latest
-
-docker run -d --name budget-api -p 8000:8000 \
-  --env MONGO_URI=$MONGO_URI \
-  $DOCKER_USERNAME/budgetbaddie-api:latest
-
-docker run -d --name budget-ai-service -p 8001:8001 \
-  $DOCKER_USERNAME/budgetbaddie-ai-service:latest
 ```
 
 ## Database Setup
@@ -182,7 +87,13 @@ The production MongoDB database is **hosted on Digital Ocean**. The database run
 
 ### Local Development Database
 
-For local development with Docker Compose, MongoDB runs in a container and is automatically started with `docker compose up -d`. All services (web, api, ai-service) automatically connect to the MongoDB container using the service name `mongo` in the Docker network.
+For local development with Docker Compose, MongoDB runs in a container:
+
+```bash
+docker compose up -d
+```
+
+This starts MongoDB on port `27017` locally. The API service automatically connects to it.
 
 ### Automatic Index Creation
 
@@ -215,12 +126,10 @@ docker exec -it budget-api python -m api.scripts.seed_data
    - `DO_SSH_KEY` - SSH private key for deployment
 
 2. **Docker Compose** (for local development)
-   - All environment variables are configured in `docker-compose.yml`
-   - MongoDB connection: `mongodb://mongo:27017/budgetbaddie` (uses Docker service name)
-   - Flask secret key defaults to `dev-secret` (override with `SECRET_KEY` env var)
-   - Email settings are optional for local development
+   - MongoDB connection is configured in `docker-compose.yml`
+   - Default: `mongodb://mongo:27017/budgetbaddie`
 
-No `.env` files are required for local development when using Docker Compose. The services are configured to work out of the box with sensible defaults.
+No `.env` files are required for local development when using Docker Compose. The services are configured to work out of the box.
 
 ### Database Schema
 
@@ -248,7 +157,7 @@ No `.env` files are required for local development when using Docker Compose. Th
 
 ```
 5-final-budgetbaddie/
-├── api/                          # Main API service (FastAPI)
+├── api/                          # Main API service
 │   ├── app/
 │   │   ├── main.py              # FastAPI application entry point
 │   │   ├── database.py          # MongoDB connection & index setup
@@ -275,31 +184,24 @@ No `.env` files are required for local development when using Docker Compose. Th
 │   ├── Dockerfile               # API container definition
 │   └── requirements.txt         # Python dependencies
 │
-├── ai-service/                   # AI service (FastAPI)
+├── ai-service/                   # AI service
 │   ├── app/
 │   │   └── main.py              # AI service FastAPI app
 │   ├── Dockerfile               # AI service container definition
 │   └── requirements.txt         # Python dependencies
 │
-├── app.py                        # Web service (Flask) - main entry point
-├── templates/                    # Flask HTML templates
-├── static/                       # Flask static files (CSS, JS, images)
-├── Dockerfile                    # Web service container definition
-├── requirements.txt              # Web service Python dependencies
-├── docker-compose.yml            # Service orchestration (all services)
-└── README.md                     # This file
+├── docker-compose.yml           # Service orchestration
+└── README.md                    # This file
 ```
 
 # Tech Stack
 
-- **Frontend**: Flask (Python) - Web interface
-- **Backend API**: FastAPI (Python) - REST API service
-- **AI Service**: FastAPI (Python) - AI-powered features
-- **Database**: MongoDB 7 (hosted on Digital Ocean for production, Docker for local)
+- **Backend**: FastAPI (Python)
+- **Database**: MongoDB 7 (hosted on Digital Ocean)
 - **Containerization**: Docker & Docker Compose
 - **Testing**: pytest with async support
-- **Deployment**: Digital Ocean (droplet hosting all services)
-- **CI/CD**: GitHub Actions (automated build, test, and deployment to DockerHub and Digital Ocean)
+- **Deployment**: Digital Ocean (droplet hosting MongoDB and services)
+- **CI/CD**: GitHub Actions (automated build, test, and deployment)
 
 # Future Planning
 
