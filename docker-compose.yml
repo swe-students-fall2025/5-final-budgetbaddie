@@ -21,6 +21,8 @@ services:
   ai-service:
     build: ./ai-service
     container_name: budget-ai-service
+    environment:
+      GOOGLE_AI_API_KEY: ${GOOGLE_AI_API_KEY:-}
     ports:
       - "8001:8001"
 
