@@ -26,7 +26,7 @@ app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.conf
 
 mail = Mail(app)
 
-# MongoDB connection - use environment variable or default to localhost for backward compatibility
+# MongoDB connection - uses MONGO_URI environment variable or defaults to localhost
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
 client = MongoClient(mongo_uri)
 db = client["budgetbaddie"]
@@ -358,5 +358,5 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    # In Docker, run on 0.0.0.0 to accept external connections
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
