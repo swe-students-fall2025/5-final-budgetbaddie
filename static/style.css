@@ -5,6 +5,13 @@
   padding: 20px 40px;
 }
 
+.expense-wrapper {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+}
+
 .top-icons {
   display: flex;
   align-items: center;
@@ -23,6 +30,20 @@
   cursor: pointer;
   padding: 0;
   margin-right: 12px;
+
+  position: relative;
+  display: inline-block;
+}
+
+.add-ie-choices {
+  position: absolute;
+  top: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: none;
+  flex-direction: row;
+  gap: 0.6rem;
 }
 
 .icon-button .budget-icon {
@@ -49,6 +70,30 @@
   object-fit: contain;
 }
 
+.tooltip {
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  
+  transform-origin: center;
+  transform: translateX(-50%) translateY(5px);
+}
+
+.icon-button:hover .tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 .modal {
   display: none;
@@ -94,24 +139,45 @@
 }
 
 
-/* Lock button style */
-.lock-button {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
+/* Lock line: checkbox + icon + text */
+.lock-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
 }
 
-.lock-button img {
-    width: 16px;
-    height: 16px;
-    object-fit: contain;
-    opacity: 0.85;
-    transition: transform 0.15s ease, opacity 0.15s ease;
+.lock-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  opacity: 0.85;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-/* Hover */
-.lock-button:hover img {
-    transform: scale(1.15);
-    opacity: 1;
+.lock-wrapper:hover .lock-icon {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+
+.income-recurring-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.recurring-select {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.9rem;
+  background-color: #fff;
 }

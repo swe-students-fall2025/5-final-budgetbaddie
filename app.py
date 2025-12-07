@@ -2,13 +2,124 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_mail import Mail, Message
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime,date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
 import secrets
 import json
 from datetime import date
+
+def _compute_next_date(current: date, pattern: str) -> date:
+    """根据 recurrence_pattern 计算下一次日期。
+    pattern: 'daily', 'weekly', 'monthly', 'yearly', 'weekday'
+    """
+    if pattern == "daily":
+        return current + timedelta(days=1)
+    if pattern == "weekly":
+        return current + timedelta(weeks=1)
+    if pattern == "monthly":
+        return current + timedelta(days=30)
+    if pattern == "yearly":
+        return date(current.year + 1, current.month, current.day)
+    if pattern == "weekday":
+        next_day = current + timedelta(days=1)
+        if next_day.weekday() == 5:   # Saturday
+            return next_day + timedelta(days=2)
+        if next_day.weekday() == 6:   # Sunday
+            return next_day + timedelta(days=1)
+        return next_day
+    return current + timedelta(days=30)
+
+def generate_recurring_entries_for_user(user_id: str):
+    """在进入 dashboard 前调用。
+    把该用户所有 recurring 模板展开到今天，避免漏账。
+    """
+    if not user_id:
+        return
+
+    uid = ObjectId(user_id)
+    today = date.today()
+
+    # -------- 1. Recurring expenses --------
+    for tmpl in db.recurring_expenses.find({"user_id": uid, "is_active": True}):
+        pattern = tmpl.get("recurrence_pattern", "monthly")
+        last_dt = tmpl.get("last_generated_date") or tmpl.get("start_date")
+
+        # 统一成 date 类型
+        if isinstance(last_dt, datetime):
+            last_dt = last_dt.date()
+
+        changed = False
+        # 从 last_dt 一直生成到今天
+        while last_dt and last_dt < today:
+            next_dt = _compute_next_date(last_dt, pattern)
+            if next_dt > today:
+                break
+
+            # 这里才插入一条新的 expense 记录（注意缩进在 while 里面）
+            dt = datetime.combine(next_dt, datetime.min.time())
+            db.expenses.insert_one({
+                "user_id": uid,
+                "budget_plan_id": None,
+                "category": tmpl["category"],
+                "amount": tmpl["amount"],
+                "note": tmpl.get("note", ""),
+                "is_recurring": True,
+                "recurrence_pattern": pattern,
+                "parent_recurring_id": tmpl["_id"],
+                "date": dt,
+                "month": dt.month,
+                "year": dt.year,
+                "created_at": datetime.utcnow(),
+            })
+
+            last_dt = next_dt
+            changed = True
+
+        # 更新模板的 last_generated_date
+        if changed:
+            db.recurring_expenses.update_one(
+                {"_id": tmpl["_id"]},
+                {"$set": {"last_generated_date": last_dt}}
+            )
+
+    # -------- 2. Recurring incomes --------
+    for tmpl in db.recurring_incomes.find({"user_id": uid, "is_active": True}):
+        pattern = tmpl.get("recurrence_pattern", "monthly")
+        last_dt = tmpl.get("last_generated_date") or tmpl.get("start_date")
+
+        if isinstance(last_dt, datetime):
+            last_dt = last_dt.date()
+
+        changed = False
+        while last_dt and last_dt < today:
+            next_dt = _compute_next_date(last_dt, pattern)
+            if next_dt > today:
+                break
+
+            dt = datetime.combine(next_dt, datetime.min.time())
+            db.incomes.insert_one({
+                "user_id": uid,
+                "date": dt,
+                "source": tmpl["source"],
+                "amount": tmpl["amount"],
+                "note": tmpl.get("note", ""),
+                "is_recurring": True,
+                "recurrence_pattern": pattern,
+                "parent_recurring_id": tmpl["_id"],
+                "created_at": datetime.utcnow(),
+            })
+
+            last_dt = next_dt
+            changed = True
+
+        if changed:
+            db.recurring_incomes.update_one(
+                {"_id": tmpl["_id"]},
+                {"$set": {"last_generated_date": last_dt}}
+            )
+
 
 load_dotenv()
 
@@ -175,6 +286,8 @@ def dashboard():
     user = get_current_user()
     if not user:
         return redirect(url_for("login"))
+    
+    generate_recurring_entries_for_user(str(user["_id"]))
 
     today = date.today()
     year, month = today.year, today.month
@@ -287,6 +400,67 @@ def save_budget_plan():
     flash("Monthly budget saved.")
     return redirect(url_for("dashboard"))
 
+@app.route("/income/add", methods=["POST"])
+def add_income():
+    # 1. 确认用户
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    user_id = user["_id"]
+
+    # 2. 表单字段
+    date_str = request.form.get("date")
+    source   = request.form.get("source", "").strip()
+    amount_s = request.form.get("amount", "0")
+    note     = request.form.get("note", "").strip()
+
+    is_recurring       = "is_recurring" in request.form
+    recurrence_pattern = request.form.get("recurrence_pattern", "none")
+
+    # 3. 解析日期
+    dt = None
+    if date_str:
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            dt = None
+
+    # 4. 金额转成 float
+    try:
+        amount = float(amount_s or 0)
+    except ValueError:
+        amount = 0.0
+
+    # 5. 先插入这一次的实际 income 记录
+    income_doc = {
+        "user_id": user_id,
+        "date": dt,
+        "source": source,
+        "amount": amount,
+        "note": note,
+        "is_recurring": is_recurring,
+        "recurrence_pattern": recurrence_pattern if is_recurring else "none",
+        "created_at": datetime.utcnow(),
+    }
+    db.incomes.insert_one(income_doc)
+
+    # 6. 如果勾选了 recurring，再插一个模板到 recurring_incomes
+    if is_recurring and dt is not None:
+        db.recurring_incomes.insert_one({
+            "user_id": user_id,
+            "start_date": dt.date(),          # 第一次收入日期
+            "last_generated_date": dt.date(), # 已经生成到哪一天
+            "source": source,
+            "amount": amount,
+            "note": note,
+            "recurrence_pattern": recurrence_pattern,
+            "is_active": True,
+        })
+
+    flash("Income added!")
+    return redirect(url_for("dashboard"))
+
 #add expenese
 
 @app.route("/expenses/add", methods=["POST"])
@@ -295,20 +469,43 @@ def add_expense():
     if not user:
         return redirect(url_for("login"))
 
-    date_str = request.form["date"]
-    category = request.form["category"]
-    amount = float(request.form["amount"])
+    user_id = user["_id"]
+
+    # 1. 表单字段
+    date_str = request.form.get("date")
+    category = request.form.get("category")
+    amount_s = request.form.get("amount", "0")
+    note     = request.form.get("note", "").strip()
     is_recurring = "is_recurring" in request.form
 
-    dt = datetime.fromisoformat(date_str)
-    year, month = dt.year, dt.month
+    # 目前前端只有一个 checkbox，如果以后你也想给 expense 加下拉，
+    # 可以在 HTML 里加一个 <select name="recurrence_pattern">，这里就会自动接住
+    recurrence_pattern = request.form.get("recurrence_pattern", "monthly" if is_recurring else "none")
 
+    # 2. 解析日期
+    if date_str:
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        year, month = dt.year, dt.month
+    else:
+        today = date.today()
+        dt = datetime.combine(today, datetime.min.time())
+        year, month = today.year, today.month
+
+    # 3. 金额
+    try:
+        amount = float(amount_s or 0)
+    except ValueError:
+        amount = 0.0
+
+    # 4. 插入这一次的实际 expense 记录
     expense = {
-        "user_id": user["_id"],
-        "budget_plan_id": None,  # 以后可以根据当月 plan 关联
+        "user_id": user_id,
+        "budget_plan_id": None,
         "category": category,
         "amount": amount,
         "is_recurring": is_recurring,
+        "recurrence_pattern": recurrence_pattern if is_recurring else "none",
+        "note": note,
         "date": dt,
         "month": month,
         "year": year,
@@ -316,8 +513,23 @@ def add_expense():
     }
 
     db.expenses.insert_one(expense)
+
+    # 5. 如果勾选了 recurring，再插一个模板到 recurring_expenses
+    if is_recurring:
+        db.recurring_expenses.insert_one({
+            "user_id": user_id,
+            "start_date": dt.date(),
+            "last_generated_date": dt.date(),
+            "category": category,
+            "amount": amount,
+            "note": note,
+            "recurrence_pattern": recurrence_pattern,
+            "is_active": True,
+        })
+
     flash("Expense added.")
     return redirect(url_for("dashboard"))
+
 
 @app.route("/logout")
 def logout():
