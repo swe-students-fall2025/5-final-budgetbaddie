@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import secrets
 import json
 from datetime import date
+from collections import defaultdict
 
 def _compute_next_date(current: date, pattern: str) -> date:
     """根据 recurrence_pattern 计算下一次日期。
@@ -139,7 +140,9 @@ mail = Mail(app)
 client = MongoClient(MONGO_URI)
 db = client["budgetbaddie"] """
 
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection - uses MONGO_URI environment variable or defaults to localhost
+mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
+client = MongoClient(mongo_uri)
 db = client["budgetbaddie"]
 
 def send_reset_email(user, token):
@@ -306,23 +309,50 @@ def dashboard():
     need_budget_popup = not is_filled
     can_edit_budget = not is_locked
 
-    # 取出本月的简单消费记录
+    #  (actual expenses)
     expenses = list(db.expenses.find({
         "user_id": user["_id"],
         "year": year,
         "month": month
     }).sort("date", -1))
 
+    # ===== Actual totals by category (for pie + bar charts) =====
+    category_totals = defaultdict(float)
+    total_expenses = 0.0
+
+    for e in expenses:
+        category = e.get("category", "Uncategorized")
+        amount = float(e.get("amount", 0) or 0)
+        category_totals[category] += amount
+        total_expenses += amount
+
+    category_totals = dict(category_totals)
+
+    # ===== Planned totals by category (from budget plan) =====
+    if plan and isinstance(plan.get("category_budgets"), dict):
+        planned_category_budgets = plan["category_budgets"]
+    else:
+        planned_category_budgets = {}
+
+    # For clarity, actual by category just reuses category_totals
+    actual_category_totals = category_totals
+
     return render_template(
         "dashboard.html",
         user=user,
         need_budget_popup=need_budget_popup,
-        can_edit_budget = can_edit_budget,
+        can_edit_budget=can_edit_budget,
         expenses=expenses,
         current_year=year,
         current_month=month,
-        plan = plan, #add popup function?
+        plan=plan,
+        category_totals=category_totals,
+        total_expenses=total_expenses,
+        planned_category_budgets=planned_category_budgets,
+        actual_category_totals=actual_category_totals,
     )
+
+
 
 #budget plan routes
 @app.route("/budget-plan", methods=["POST"])
@@ -543,4 +573,5 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
