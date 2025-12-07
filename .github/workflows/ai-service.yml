@@ -58,5 +58,4 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
             docker stop budget-ai-service || true
             docker rm budget-ai-service || true
-            docker run -d --name budget-ai-service -p 8001:8001 ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
-
+            docker run -d --name budget-ai-service -p 8001:8001 --env GOOGLE_AI_API_KEY=${{ secrets.GOOGLE_AI_API_KEY }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest

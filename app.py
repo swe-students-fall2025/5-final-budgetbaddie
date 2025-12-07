@@ -361,9 +361,5 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    app.run(debug=True)
-=======
     debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
     app.run(host="0.0.0.0", port=5000, debug=debug_mode)
->>>>>>> 14ebf23 (update app.py to use mongo_uri env var)
