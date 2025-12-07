@@ -1,357 +1,237 @@
 {% extends "base.html" %}
 {% block content %}
 
+<header class="main-header">
+    <div class="header-left">
+        <div class="logo">
+            <div class="logo-icon">$</div>
+            <span class="logo-text">Budget Baddie</span>
+        </div>
+        <span class="user-email">{{ user.email }}</span>
+    </div>
+    
+    <div class="header-right">
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+        </a>
+    </div>
+</header>
 
-<div class="top-bar">
-    <h2 class="greeting">Hello, {{ user.email }}</h2>
-
-    <div class="top-icons"></div>
-    <button id="open-budget-modal" class="icon-button">
-    <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
-  </button>
-
-
-    <a href="{{ url_for('logout') }}" class="logout-button">
-      <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+<nav class="main-nav">
+    <a href="{{ url_for('dashboard') }}" class="nav-tab active">
+        Dashboard
     </a>
-</div>
+    <a href="#" class="nav-tab">
+        Plans
+    </a>
+    <a href="#" class="nav-tab">
+        Expenses
+    </a>
+</nav>
 
-<!-- 以后放 graphs&lists -->
+<main class="main-content">
+    <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <div class="date-selector">
+            <select class="date-dropdown" id="month-selector">
+                <option value="1">January 2025</option>
+                <option value="2">February 2025</option>
+                <option value="3">March 2025</option>
+                <option value="4">April 2025</option>
+                <option value="5">May 2025</option>
+                <option value="6">June 2025</option>
+                <option value="7">July 2025</option>
+                <option value="8">August 2025</option>
+                <option value="9">September 2025</option>
+                <option value="10">October 2025</option>
+                <option value="11" selected>November 2025</option>
+                <option value="12">December 2025</option>
+            </select>
+        </div>
+    </div>
+
+    <section class="card budget-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Monthly Budget</h2>
+                <p class="card-subtitle" id="budget-month-display">November 2025</p>
+            </div>
+            <button id="open-budget-modal" class="icon-button">
+                <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget">
+            </button>
+        </div>
+        
+        <div id="budget-display-area" class="budget-display">
+            <div class="empty-state">
+                <p class="empty-state-text">No budget set for this month</p>
+                <button class="btn-primary" id="set-budget-btn">
+                    <span class="btn-icon">+</span>
+                    Set Monthly Budget
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="period-tabs">
+            <button class="period-tab active">Daily</button>
+            <button class="period-tab">Weekly</button>
+            <button class="period-tab">Monthly</button>
+            <button class="period-tab">Yearly</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title" id="spending-trend-title">Monthly Spending Trend</h2>
+        <div id="spending-chart" class="chart-container">
+            <div class="empty-state">
+                <p class="empty-state-text">No data available yet</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="charts-grid">
+        <section class="card">
+            <h2 class="card-title">Spending by Category</h2>
+            <div class="empty-state">
+                <p class="empty-state-text">No expenses yet</p>
+            </div>
+        </section>
+        
+        <section class="card">
+            <h2 class="card-title">Planned vs Actual by Category</h2>
+            <div class="empty-state">
+                <p class="empty-state-text">No data yet</p>
+            </div>
+        </section>
+    </div>
+</main>
+
+<button class="fab">
+    <span class="fab-icon">+</span>
+</button>
 
 <div id="budget-modal" class="modal {% if need_budget_popup %}show{% endif %}">
-  <div class="modal-content">
-    <h3>
-      Budget for {{ current_month }}/{{ current_year }}
-      {% if plan and plan.is_locked %}(Locked){% endif %}
-    </h3>
+    <div class="modal-content">
+        <h3 class="modal-title">
+            Budget for {{ current_month }}/{{ current_year }}
+        </h3>
 
-    <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
-      <input type="hidden" name="year" value="{{ current_year }}">
-      <input type="hidden" name="month" value="{{ current_month }}">
+        <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
+            <input type="hidden" name="year" value="{{ current_year }}">
+            <input type="hidden" name="month" value="{{ current_month }}">
+            <input type="hidden" name="categories_json" id="categories-json">
 
-      <!-- json -->
-      <input type="hidden" name="categories_json" id="categories-json">
+            <div class="form-group">
+                <label>Category</label>
+                <select id="category-select" class="form-input" {% if not can_edit_budget %}disabled{% endif %}>
+                    <option value="" disabled selected>Choose existing category</option>
+                    <option value="Rent">Rent</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="New">+ New category...</option>
+                </select>
 
-      <!-- category drop down and type input -->
-      <div class="field-row">
-        <label>Category</label>
-        <select id="category-select" {% if not can_edit_budget %}disabled{% endif %}>
-          <option value="" disabled selected>Choose existing category</option>
-          <option value="Rent">Rent</option>
-          <option value="Groceries">Groceries</option>
-          <option value="Transport">Transport</option>
-          <option value="Entertainment">Entertainment</option>
-          <option value="New">+ New category...</option>
-        </select>
+                <input
+                    type="text"
+                    id="new-category-input"
+                    class="form-input"
+                    placeholder="New category name"
+                    style="display:none; margin-top: 10px;"
+                    {% if not can_edit_budget %}disabled{% endif %}
+                >
+            </div>
 
-        <input
-          type="text"
-          id="new-category-input"
-          placeholder="New category name"
-          style="display:none;"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-      </div>
+            <div class="form-group">
+              <label>Amount for this category</label>
+                <div class="input-with-button">
+                    <input
+                        type="number"
+                        step="0.01"
+                        id="category-amount-input"
+                        class="form-input no-spinners"
+                        placeholder="0.00"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                    <button
+                        type="button"
+                        id="add-category-btn"
+                        class="btn-secondary"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                        Add to plan
+                    </button>
+                </div>
+              <div id="category-add-error" style="display: none; color: #dc3545; font-size: 0.85rem; margin-top: 5px;"></div>
+            </div>
 
-      <!-- Enter amount for the current category -->
-      <div class="field-row">
-        <label>Amount for this category</label>
-        <input
-          type="number"
-          step="0.01"
-          id="category-amount-input"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-        <button
-          type="button"
-          id="add-category-btn"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-          Add to plan
-        </button>
-      </div>
+            <div class="form-group">
+                <label>Current category budgets</label>
+                <div class="table-container">
+                    <table id="category-table" class="budget-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            </tbody>
+                    </table>
+                </div>
+            </div>
 
-      <!-- display current catgeories -->
-      <div class="field-row">
-        <h4>Current category budgets</h4>
-        <table id="category-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Amount</th>
-              {% if can_edit_budget %}
-              <th>Actions</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody>
-            <!-- JS -->
-          </tbody>
-        </table>
-      </div>
+            <div class="form-group">
+                <label>Total monthly budget</label>
+                
+                <div class="input-with-button">
+                    <input
+                        type="number"
+                        step="0.01"
+                        name="total_budget"
+                        id="total-budget-input"
+                        class="form-input no-spinners"
+                        placeholder="e.g. 3000.00"
+                        value="{{ plan.total_budget if plan else '' }}"
+                    >
+                    <button
+                        type="button"
+                        id="set-total-btn"
+                        class="btn-secondary"
+                    >
+                        Set
+                    </button>
+                </div>
 
-      <div class="field-row">
-        <label>Total monthly budget</label>
-        <input
-          type="number"
-          step="0.01"
-          name="total_budget"
-          id="total-budget-input"
-          placeholder="Auto sum of categories..."
-          value="{{ plan.total_budget if plan else '' }}"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-        <small>Current total amount; click and type to adjust. </small>
-      </div>
+                <small class="form-hint" style="margin-bottom: 10px; display:block;">Click "Set" to calculate Extra funds.</small>
+                <div id="budget-error-message" class="budget-error-message" style="display: none; margin-bottom: 10px;">
+                    ⚠️ Total budget cannot be less than the sum of all categories.
+                </div>
 
-      {% if can_edit_budget %}
-      <div class="field-row">
-        <label>
-          <input type="checkbox" name="lock_budget">
-          Lock this month's budget
-        </label>
-        <small>!!!Once locked, you cannot make changes to the budget this month!!!</small>
-      </div>
+                <button
+                    type="button"
+                    id="lock-total-budget-btn"
+                    class="btn-secondary"
+                    style="width: 100%; border: 1px dashed var(--color-border);"
+                >
+                    🔒 Lock Budget (Permanent)
+                </button>
+            </div>
 
-      <button type="submit">Save</button>
-      {% else %}
-      <p>This month's budget is locked. You can only view it.</p>
-      {% endif %}
-    </form>
+            <div class="lock-warning-message" id="lock-warning" style="display: none;">
+                ⚠️ <strong>WARNING:</strong> Once you lock the total budget, you cannot unlock it or change the amount. You can still add categories as long as they don't exceed the total.
+            </div>
 
-    <button type="button" id="close-budget-modal" class="close-btn">Close</button>
-  </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" id="close-budget-modal" class="btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
 </div>
 
-
-<!--check-->>
-{% if not need_budget_popup %}
-<section class="budget-diagram">
-  <h3>This Month's Budget</h3>
-  <!-- 这里先放一个占位，之后你可以用 JS 画图 -->
-  <div id="budget-chart">
-    <p>Total budget: {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
-    <!-- 将来放图：例如饼图/柱状图 -->
-  </div>
-</section>
-{% endif %}
-
-<!-- add expense -->
-
-{% if not need_budget_popup %}
-<section class="add-expense">
-  <h3>Add Expense</h3>
-  <form method="POST" action="{{ url_for('add_expense') }}">
-    <label>Date</label>
-    <input type="date" name="date" required>
-
-    <label>Category</label>
-    <input type="text" name="category" required>
-
-    <label>Amount</label>
-    <input type="number" step="0.01" name="amount" required>
-
-    <label>
-      <input type="checkbox" name="is_recurring">
-      Recurring
-    </label>
-
-    <button type="submit">Add</button>
-  </form>
-</section>
-
-<section class="expense-list">
-  <h3>This Month's Expenses</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Category</th>
-        <th>Amount</th>
-        <th>Recurring</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in expenses %}
-      <tr>
-        <td>{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
-        <td>{{ e.category }}</td>
-        <td>{{ '%.2f'|format(e.amount) }}</td>
-        <td>{{ 'Yes' if e.is_recurring else 'No' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-{% endif %}
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-  const modal = document.getElementById("budget-modal");
-  const openBtn = document.getElementById("open-budget-modal");
-  const closeBtn = document.getElementById("close-budget-modal");
-
-  function openModal() {
-    if (modal) modal.classList.add("show");
-  }
-
-  function closeModal() {
-    if (modal) modal.classList.remove("show");
-  }
-
-  // 点击 budget 图标 → 打开
-  if (openBtn) {
-    openBtn.addEventListener("click", function () {
-      openModal();
-    });
-  }
-
-  // 点击 Close 按钮 → 关闭
-  if (closeBtn) {
-    closeBtn.addEventListener("click", function () {
-      closeModal();
-    });
-  }
-
-  // 点击遮罩空白区域 → 关闭
-  if (modal) {
-    modal.addEventListener("click", function (event) {
-      if (event.target === modal) {
-        closeModal();
-      }
-    });
-  }
-
-  // 不再在 JS 里判断 need_budget_popup，自动弹出交给 HTML + CSS 处理
-});
-</script>
-
-
-
-
-
-
-<!-- new categories! -->
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const categorySelect = document.getElementById("category-select");
-  const newCategoryInput = document.getElementById("new-category-input");
-  const categoryAmountInput = document.getElementById("category-amount-input");
-  const addCategoryBtn = document.getElementById("add-category-btn");
-  const categoryTableBody = document.querySelector("#category-table tbody");
-  const totalBudgetInput = document.getElementById("total-budget-input");
-  const categoriesJsonInput = document.getElementById("categories-json");
-  const budgetForm = document.getElementById("budget-form");
-
-  let categories = [];
-  let totalEditedManually = false;
-
-  categorySelect.addEventListener("change", function () {
-    if (this.value === "New") {
-      newCategoryInput.style.display = "inline-block";
-      newCategoryInput.focus();
-    } else {
-      newCategoryInput.style.display = "none";
-    }
-  });
-
-  addCategoryBtn.addEventListener("click", function () {
-    let categoryName = "";
-
-    if (categorySelect.value === "New") {
-      categoryName = newCategoryInput.value.trim();
-    } else {
-      categoryName = categorySelect.value;
-    }
-
-    const amountValue = parseFloat(categoryAmountInput.value);
-
-    if (!categoryName) {
-      alert("Please choose or enter a category name.");
-      return;
-    }
-    if (isNaN(amountValue) || amountValue <= 0) {
-      alert("Please enter a valid positive amount.");
-      return;
-    }
-    if (editingIndex !== null) {
-      categories[editingIndex] = { category: categoryName, amount: amountValue };
-      editingIndex = null;
-    } else {
-      const existing = categories.find(c => c.category === categoryName);
-      if (existing) {
-        existing.amount = amountValue;
-      } else {
-        categories.push({ category: categoryName, amount: amountValue });
-      }
-    }
-
-    categoryAmountInput.value = "";
-    if (categorySelect.value === "New") {
-      newCategoryInput.value = "";
-    }
-
-    renderCategoryTable();
-    updateTotalIfNotEdited();
-  });
-
-  function renderCategoryTable() {
-    categoryTableBody.innerHTML = "";
-    categories.forEach(item => {
-      const tr = document.createElement("tr");
-      const tdName = document.createElement("td");
-      const tdAmount = document.createElement("td");
-
-      tdName.textContent = item.category;
-      tdAmount.textContent = item.amount.toFixed(2);
-
-      tr.appendChild(tdName);
-      tr.appendChild(tdAmount);
-      categoryTableBody.appendChild(tr);
-    });
-  }
-
-  function getCategoriesSum() {
-    return categories.reduce((sum, c) => sum + (c.amount || 0), 0);
-  }
-
-  function updateTotalIfNotEdited() {
-    if (!totalEditedManually) {
-      const sum = getCategoriesSum();
-      if (sum > 0) {
-        totalBudgetInput.value = sum.toFixed(2);
-      }
-    }
-  }
-
-  totalBudgetInput.addEventListener("focus", function () {
-    totalEditedManually = true;
-  });
-
-  totalBudgetInput.addEventListener("blur", function () {
-    const manualTotal = parseFloat(totalBudgetInput.value);
-    const sum = getCategoriesSum();
-
-    if (!isNaN(manualTotal) && manualTotal > sum) {
-      const extraAmount = manualTotal - sum;
-
-      const existingExtra = categories.find(c => c.category === "extra");
-      if (existingExtra) {
-        existingExtra.amount += extraAmount;
-      } else {
-        categories.push({ category: "extra", amount: extraAmount });
-      }
-      renderCategoryTable();
-    }
-  });
-
-  budgetForm.addEventListener("submit", function () {
-    categoriesJsonInput.value = JSON.stringify(categories);
-  });
-});
-</script>
-
-
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 {% endblock %}
