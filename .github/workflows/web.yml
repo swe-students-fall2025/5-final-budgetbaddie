@@ -1,4 +1,4 @@
-name: ai-service ci/cd
+name: web ci/cd
 
 on:
   push:
@@ -11,6 +11,14 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_DATABASE: budgetbaddie_test
+    
     steps:
       - uses: actions/checkout@v3
       
@@ -21,18 +29,15 @@ jobs:
       
       - name: install dependencies
         run: |
-          cd ai-service
           pip install -r requirements.txt
       
       - name: run tests
         run: |
-          cd ai-service
           pytest || echo "no tests yet"
       
       - name: build docker image
         run: |
-          cd ai-service
-          docker build -t budgetbaddie-ai-service:latest .
+          docker build -t budgetbaddie-web:latest .
       
       - name: push to docker hub
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
@@ -44,8 +49,8 @@ jobs:
       - name: tag and push
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
-          docker tag budgetbaddie-ai-service:latest ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
+          docker tag budgetbaddie-web:latest ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
       
       - name: deploy to digital ocean
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
@@ -55,7 +60,7 @@ jobs:
           username: ${{ secrets.DO_USERNAME }}
           key: ${{ secrets.DO_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
-            docker stop budget-ai-service || true
-            docker rm budget-ai-service || true
-            docker run -d --name budget-ai-service -p 8001:8001 --env GOOGLE_AI_API_KEY=${{ secrets.GOOGLE_AI_API_KEY }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-ai-service:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
+            docker stop budget-web || true
+            docker rm budget-web || true
+            docker run -d --name budget-web -p 5000:5000 --env MONGO_URI=${{ secrets.MONGO_URI }} --env SECRET_KEY=${{ secrets.SECRET_KEY }} --env MAIL_USERNAME=${{ secrets.MAIL_USERNAME }} --env MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} --env MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
