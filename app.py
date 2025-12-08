@@ -26,7 +26,12 @@ app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
 
-mail = Mail(app)
+# Initialize Mail - wrap in try/except to prevent startup failure if mail config is missing
+try:
+    mail = Mail(app)
+except Exception as e:
+    print(f"WARNING: Failed to initialize Flask-Mail: {e}", file=sys.stderr)
+    mail = None
 
 # MongoDB connection - use MONGO_URI from environment or fallback to localhost
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
@@ -64,6 +69,10 @@ except Exception as e:
     raise
 
 def send_reset_email(user, token):
+    if mail is None:
+        print("WARNING: Mail not configured, cannot send reset email", file=sys.stderr)
+        return
+    
     reset_url = url_for("reset_password", token=token, _external=True)
     print("DEBUG RESET URL:", reset_url)
 
@@ -82,7 +91,7 @@ If you did not request this, you can ignore this email.
         mail.send(msg)
         print("MAIL SENT OK")
     except Exception as e:
-        print("MAIL ERROR:", e)
+        print(f"MAIL ERROR: {e}", file=sys.stderr)
 
 
 
