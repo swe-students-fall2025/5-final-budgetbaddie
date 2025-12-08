@@ -10,6 +10,12 @@ import secrets
 import json
 from datetime import date
 
+from collections import defaultdict
+import traceback
+import sys
+
+
+
 def _compute_next_date(current: date, pattern: str) -> date:
     """根据 recurrence_pattern 计算下一次日期。
     pattern: 'daily', 'weekly', 'monthly', 'yearly', 'weekday'
@@ -134,15 +140,47 @@ app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
 app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
 
-mail = Mail(app)
-""" client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
-client = MongoClient(MONGO_URI)
-db = client["budgetbaddie"] """
+# Initialize Mail - wrap in try/except to prevent startup failure if mail config is missing
+try:
+    mail = Mail(app)
+except Exception as e:
+    print(f"WARNING: Failed to initialize Flask-Mail: {e}", file=sys.stderr)
+    mail = None
 
-client = MongoClient("mongodb://localhost:27017")
-db = client["budgetbaddie"]
+# MongoDB connection - use MONGO_URI from environment or fallback to localhost
+mongo_uri = os.getenv("MONGO_URI") or "mongodb://localhost:27017/budgetbaddie"
+print(f"Attempting to connect to MongoDB with URI: {mongo_uri}", file=sys.stderr)
+
+try:
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+    # 提取 db 名
+    db_name = "budgetbaddie"
+    try:
+        uri_parts = mongo_uri.split("//")
+        if len(uri_parts) > 1:
+            path_part = uri_parts[1].split("/")
+            if len(path_part) > 1:
+                potential_db = path_part[1].split("?")[0]
+                if potential_db:
+                    db_name = potential_db
+    except Exception:
+        pass
+
+    db = client[db_name]
+    client.admin.command("ping")
+    print(f"Successfully connected to MongoDB at {mongo_uri}, database: {db_name}", file=sys.stderr)
+except Exception as e:
+    error_trace = traceback.format_exc()
+    print(f"ERROR: Failed to connect to MongoDB: {e}", file=sys.stderr)
+    print(f"MONGO_URI was: {mongo_uri}", file=sys.stderr)
+    print(f"Traceback: {error_trace}", file=sys.stderr)
+    raise
 
 def send_reset_email(user, token):
+    if mail is None:
+        print("WARNING: Mail not configured, cannot send reset email", file=sys.stderr)
+        return
+    
     reset_url = url_for("reset_password", token=token, _external=True)
     print("DEBUG RESET URL:", reset_url)
 
@@ -161,7 +199,7 @@ If you did not request this, you can ignore this email.
         mail.send(msg)
         print("MAIL SENT OK")
     except Exception as e:
-        print("MAIL ERROR:", e)
+        print(f"MAIL ERROR: {e}", file=sys.stderr)
 
 
 
@@ -175,46 +213,65 @@ def get_current_user():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
+        try:
+            email = request.form["email"].strip().lower()
+            password = request.form["password"]
 
-        existing = db.users.find_one({"email": email})
-        if existing:
-            flash("Email already registered.")
+            # Test MongoDB connection before proceeding
+            try:
+                client.admin.command('ping')
+            except Exception as conn_err:
+                print(f"ERROR: MongoDB connection lost: {conn_err}", file=sys.stderr)
+                flash("Database connection error. Please try again.")
+                return redirect(url_for("signup"))
+
+            existing = db.users.find_one({"email": email})
+            if existing:
+                flash("Email already registered.")
+                return redirect(url_for("signup"))
+
+            hashed = generate_password_hash(password)
+
+            user = {
+                "email": email,
+                "password": hashed,
+                "created_at": datetime.utcnow(),
+                "verification_code": None,
+                "password_reset_token": None,
+            }
+            result = db.users.insert_one(user)
+            session["user_id"] = str(result.inserted_id)
+            return redirect(url_for("dashboard"))
+        except Exception as e:
+            error_msg = str(e)
+            error_trace = traceback.format_exc()
+            print(f"ERROR in signup: {error_msg}", file=sys.stderr)
+            print(f"Traceback: {error_trace}", file=sys.stderr)
+            flash(f"An error occurred during signup: {error_msg}")
             return redirect(url_for("signup"))
-
-        hashed = generate_password_hash(password)
-
-        user = {
-            "email": email,
-            "password": hashed,
-            "created_at": datetime.utcnow(),
-            "verification_code": None,
-            "password_reset_token": None,
-        }
-        result = db.users.insert_one(user)
-        session["user_id"] = str(result.inserted_id)
-        return redirect(url_for("dashboard"))
 
     return render_template("signup.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
+        try:
+            email = request.form["email"].strip().lower()
+            password = request.form["password"]
 
-        user = db.users.find_one({"email": email})
-        if not user or not check_password_hash(user["password"], password):
-            flash("Invalid email or password.")
+            user = db.users.find_one({"email": email})
+            if not user or not check_password_hash(user["password"], password):
+                flash("Invalid email or password.")
+                return redirect(url_for("login"))
+
+            session["user_id"] = str(user["_id"])
+            return redirect(url_for("dashboard"))
+        except Exception as e:
+            print(f"ERROR in login: {e}")
+            flash("An error occurred during login. Please try again.")
             return redirect(url_for("login"))
 
-        session["user_id"] = str(user["_id"])
-        return redirect(url_for("dashboard"))
-
     return render_template("login.html")
-
-import secrets
 
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
@@ -279,8 +336,6 @@ def reset_password(token):
 
 #dashboard
 
-from datetime import date
-
 @app.route("/dashboard")
 def dashboard():
     user = get_current_user()
@@ -306,23 +361,50 @@ def dashboard():
     need_budget_popup = not is_filled
     can_edit_budget = not is_locked
 
-    # 取出本月的简单消费记录
+    #  (actual expenses)
     expenses = list(db.expenses.find({
         "user_id": user["_id"],
         "year": year,
         "month": month
     }).sort("date", -1))
 
+    # ===== Actual totals by category (for pie + bar charts) =====
+    category_totals = defaultdict(float)
+    total_expenses = 0.0
+
+    for e in expenses:
+        category = e.get("category", "Uncategorized")
+        amount = float(e.get("amount", 0) or 0)
+        category_totals[category] += amount
+        total_expenses += amount
+
+    category_totals = dict(category_totals)
+
+    # ===== Planned totals by category (from budget plan) =====
+    if plan and isinstance(plan.get("category_budgets"), dict):
+        planned_category_budgets = plan["category_budgets"]
+    else:
+        planned_category_budgets = {}
+
+    # For clarity, actual by category just reuses category_totals
+    actual_category_totals = category_totals
+
     return render_template(
         "dashboard.html",
         user=user,
         need_budget_popup=need_budget_popup,
-        can_edit_budget = can_edit_budget,
+        can_edit_budget=can_edit_budget,
         expenses=expenses,
         current_year=year,
         current_month=month,
-        plan = plan, #add popup function?
+        plan=plan,
+        category_totals=category_totals,
+        total_expenses=total_expenses,
+        planned_category_budgets=planned_category_budgets,
+        actual_category_totals=actual_category_totals,
     )
+
+
 
 #budget plan routes
 @app.route("/budget-plan", methods=["POST"])
@@ -383,22 +465,6 @@ def save_budget_plan():
     flash("Monthly budget saved.")
     return redirect(url_for("dashboard"))
 
-    # upsert：如果当月已有 plan 就更新；没有就创建
-    db.budget_plans.update_one(
-        {"user_id": user["_id"], "year": year, "month": month},
-        {
-            "$set": {
-                "is_filled": True,
-                "total_budget": total_budget,
-                "updated_at": datetime.utcnow(),
-            },
-            "$setOnInsert": {"created_at": datetime.utcnow()},
-        },
-        upsert=True,
-    )
-
-    flash("Monthly budget saved.")
-    return redirect(url_for("dashboard"))
 
 @app.route("/income/add", methods=["POST"])
 def add_income():
@@ -542,5 +608,15 @@ def logout():
 def index():
     return redirect(url_for("login"))
 
+# Add error handler to log all exceptions
+@app.errorhandler(500)
+def internal_error(error):
+    error_trace = traceback.format_exc()
+    print(f"INTERNAL SERVER ERROR: {error}", file=sys.stderr)
+    print(f"Traceback: {error_trace}", file=sys.stderr)
+    return "Internal Server Error", 500
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Bind to 0.0.0.0 to make it accessible from outside the container
+    # Use debug=False in production for security
+    app.run(host="0.0.0.0", port=5000, debug=False)
