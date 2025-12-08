@@ -93,31 +93,22 @@
     <div class="charts-grid">
         <section class="card">
             <h2 class="card-title">Spending by Category</h2>
-
-            {% if total_expenses > 0 %}
-                <div class="chart-container">
-                    <!-- Pie chart will render here -->
-                    <canvas id="expensePieChart"></canvas>
-                </div>
-            {% else %}
-                <div class="empty-state">
+            <div class="chart-container">
+                <canvas id="expensePieChart" style="display: none;"></canvas>
+                <div id="pie-chart-empty" class="empty-state">
                     <p class="empty-state-text">No expenses yet</p>
                 </div>
-            {% endif %}
+            </div>
         </section>
         
         <section class="card">
             <h2 class="card-title">Planned vs Actual by Category</h2>
-
-            {% if planned_category_budgets or actual_category_totals %}
-                <div class="chart-container">
-                    <canvas id="plannedActualChart"></canvas>
-                </div>
-            {% else %}
-                <div class="empty-state">
+            <div class="chart-container">
+                <canvas id="plannedActualChart" style="display: none;"></canvas>
+                <div id="bar-chart-empty" class="empty-state">
                     <p class="empty-state-text">No data yet</p>
                 </div>
-            {% endif %}
+            </div>
         </section>
     </div>
 
@@ -254,9 +245,10 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js from CDN - Load FIRST before any chart code -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<!-- 所有 JS 合并到一个 DOMContentLoaded 里 -->
+<!-- All existing JS code -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   // ====== Modal open / close ======
@@ -510,120 +502,216 @@ document.addEventListener("DOMContentLoaded", function () {
   renderCategoryTable();
   updateTotalIfNotEdited();
 
-    // =========================
-    // Pie chart: Spending by Category (Actual)
-    // =========================
-    const categoryTotals = {{ category_totals | default({}) | tojson }};
-    const pieLabels = Object.keys(categoryTotals);
-    const pieData = Object.values(categoryTotals);
+  // Initialize charts after Chart.js loads - wait longer to ensure it's ready
+  function waitForChartJS(callback, maxAttempts = 20) {
+    if (typeof Chart !== 'undefined') {
+      callback();
+    } else if (maxAttempts > 0) {
+      setTimeout(() => waitForChartJS(callback, maxAttempts - 1), 100);
+    } else {
+      console.error('Chart.js failed to load after 2 seconds');
+    }
+  }
+  waitForChartJS(initializeCharts);
+});
 
-    if (pieLabels.length > 0) {
-        const pieCtx = document.getElementById('expensePieChart').getContext('2d');
+// Chart initialization function
+function initializeCharts() {
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js library not loaded!');
+    return;
+  }
 
-        new Chart(pieCtx, {
-            type: 'pie',
-            data: {
-                labels: pieLabels,
-                datasets: [{
-                    data: pieData,
-                    borderWidth: 1
-                }]
+  // Get data from Flask - tojson filter produces valid JavaScript directly (no JSON.parse needed!)
+  // This follows W3Schools Chart.js best practice
+  {% if plan and plan.category_budgets %}
+  const plannedData = {{ plan.category_budgets | tojson }};
+  {% else %}
+  const plannedData = {{ planned_category_budgets | default({}) | tojson }};
+  {% endif %}
+  const actualData = {{ actual_category_totals | default({}) | tojson }};
+  const expenseData = {{ category_totals | default({}) | tojson }};
+
+  console.log('=== Chart Data Loaded ===');
+  console.log('Planned:', plannedData);
+  console.log('Actual:', actualData);
+  console.log('Expenses:', expenseData);
+
+  // ============================================
+  // BAR CHART: Planned vs Actual by Category
+  // ============================================
+  const barCanvas = document.getElementById('plannedActualChart');
+  const barEmpty = document.getElementById('bar-chart-empty');
+
+  console.log('Bar canvas element:', barCanvas);
+  console.log('Bar empty element:', barEmpty);
+
+  if (!barCanvas) {
+    console.error('Bar chart canvas not found!');
+    return;
+  }
+
+  const categories = Object.keys(plannedData || {});
+  console.log('Categories for bar chart:', categories);
+  
+  if (categories.length > 0) {
+    console.log('Creating bar chart with', categories.length, 'categories');
+    // Hide empty state, show chart
+    if (barEmpty) barEmpty.style.display = 'none';
+    barCanvas.style.display = 'block';
+
+      const plannedValues = categories.map(cat => Number(plannedData[cat] || 0));
+      const actualValues = categories.map(cat => Number(actualData[cat] || 0));
+
+      try {
+        const ctx = barCanvas.getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: categories,
+            datasets: [{
+              label: 'Planned',
+              data: plannedValues,
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
+            }, {
+              label: 'Actual',
+              data: actualValues,
+              backgroundColor: 'rgba(255, 99, 132, 0.6)',
+              borderColor: 'rgba(255, 99, 132, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: function(value) {
+                    return '$' + value;
+                  }
+                }
+              }
             },
-            options: {
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    },
-                    title: {
-                        display: true,
-                        text: 'Monthly Expenses by Category'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(ctx) {
-                                const value = ctx.raw || 0;
-                                const total = pieData.reduce((a, b) => a + b, 0);
-                                const pct = total ? (value / total * 100).toFixed(1) : 0;
-                                return `${ctx.label}: $${value.toFixed(2)} (${pct}%)`;
-                            }
-                        }
-                    }
+            plugins: {
+              legend: {
+                position: 'top'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return context.dataset.label + ': $' + context.parsed.y.toFixed(2);
+                  }
                 }
+              }
             }
+          }
         });
+        console.log('✅ Bar chart rendered successfully!');
+      } catch (error) {
+        console.error('❌ Error creating bar chart:', error);
+        console.error('Error details:', error.message, error.stack);
+        if (barEmpty) barEmpty.style.display = 'block';
+        barCanvas.style.display = 'none';
+      }
+    } else {
+      console.log('No categories found, showing empty state');
+      // Show empty state
+      if (barEmpty) barEmpty.style.display = 'block';
+      barCanvas.style.display = 'none';
     }
+  } else {
+    console.error('Bar canvas element not found in DOM!');
+  }
 
-    // =========================
-    // Bar chart: Planned vs Actual by Category
-    // =========================
-    const planned = {{ planned_category_budgets | default({}) | tojson }};
-    const actual  = {{ actual_category_totals  | default({}) | tojson }};
+  // ============================================
+  // PIE CHART: Spending by Category
+  // ============================================
+  const pieCanvas = document.getElementById('expensePieChart');
+  const pieEmpty = document.getElementById('pie-chart-empty');
 
-    const allCategories = Array.from(
-        new Set([
-            ...Object.keys(planned || {}),
-            ...Object.keys(actual || {})
-        ])
-    );
+  console.log('Pie canvas element:', pieCanvas);
+  console.log('Pie empty element:', pieEmpty);
 
-    if (allCategories.length > 0) {
-        const plannedData = allCategories.map(cat => (planned && planned[cat]) ? Number(planned[cat]) : 0);
-        const actualData  = allCategories.map(cat => (actual  && actual[cat])  ? Number(actual[cat])  : 0);
+  if (!pieCanvas) {
+    console.error('Pie chart canvas not found!');
+    return;
+  }
 
-        const barCanvas = document.getElementById('plannedActualChart');
-        if (barCanvas) {
-            const barCtx = barCanvas.getContext('2d');
+  const expenseLabels = Object.keys(expenseData || {});
+  const expenseValues = Object.values(expenseData || {});
+  const hasData = expenseValues.some(v => v > 0);
 
-            new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: allCategories,
-                    datasets: [
-                        {
-                            label: 'Planned',
-                            data: plannedData,
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Actual',
-                            data: actualData,
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value;
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Planned vs Actual Spending'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(ctx) {
-                                    const v = ctx.raw || 0;
-                                    return `${ctx.dataset.label}: $${v.toFixed(2)}`;
-                                }
-                            }
-                        }
-                    }
+  console.log('Expense labels:', expenseLabels);
+  console.log('Expense values:', expenseValues);
+  console.log('Has expense data:', hasData);
+
+  if (hasData) {
+    console.log('Creating pie chart with', expenseLabels.length, 'categories');
+    // Hide empty state, show chart
+    if (pieEmpty) pieEmpty.style.display = 'none';
+    pieCanvas.style.display = 'block';
+
+      try {
+        const ctx = pieCanvas.getContext('2d');
+        new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: expenseLabels,
+            datasets: [{
+              data: expenseValues,
+              backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+              ],
+              borderWidth: 2,
+              borderColor: '#fff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.parsed || 0;
+                    const total = expenseValues.reduce((a, b) => a + b, 0);
+                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return label + ': $' + value.toFixed(2) + ' (' + percentage + '%)';
+                  }
                 }
-            });
-        }
+              }
+            }
+          }
+        });
+        console.log('✅ Pie chart rendered successfully!');
+      } catch (error) {
+        console.error('❌ Error creating pie chart:', error);
+        console.error('Error details:', error.message, error.stack);
+        if (pieEmpty) pieEmpty.style.display = 'block';
+        pieCanvas.style.display = 'none';
+      }
+    } else {
+      console.log('No expense data, showing empty state');
+      // Show empty state
+      if (pieEmpty) pieEmpty.style.display = 'block';
+      pieCanvas.style.display = 'none';
     }
+  } else {
+    console.error('Pie canvas element not found in DOM!');
+  }
+  
+  console.log('=== Chart initialization complete ===');
+}
 </script>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
