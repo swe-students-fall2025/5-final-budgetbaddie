@@ -25,14 +25,19 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
 
 mail = Mail(app)
-""" client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
-client = MongoClient(MONGO_URI)
-db = client["budgetbaddie"] """
 
-# MongoDB connection - uses MONGO_URI environment variable or defaults to localhost
+# MongoDB connection - use MONGO_URI from environment or fallback to localhost
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
-client = MongoClient(mongo_uri)
-db = client["budgetbaddie"]
+try:
+    client = MongoClient(mongo_uri)
+    db = client["budgetbaddie"]
+    # Test the connection
+    client.admin.command('ping')
+    print(f"Successfully connected to MongoDB at {mongo_uri}")
+except Exception as e:
+    print(f"ERROR: Failed to connect to MongoDB: {e}")
+    print(f"MONGO_URI was: {mongo_uri}")
+    raise
 
 def send_reset_email(user, token):
     reset_url = url_for("reset_password", token=token, _external=True)
@@ -67,46 +72,54 @@ def get_current_user():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
+        try:
+            email = request.form["email"].strip().lower()
+            password = request.form["password"]
 
-        existing = db.users.find_one({"email": email})
-        if existing:
-            flash("Email already registered.")
+            existing = db.users.find_one({"email": email})
+            if existing:
+                flash("Email already registered.")
+                return redirect(url_for("signup"))
+
+            hashed = generate_password_hash(password)
+
+            user = {
+                "email": email,
+                "password": hashed,
+                "created_at": datetime.utcnow(),
+                "verification_code": None,
+                "password_reset_token": None,
+            }
+            result = db.users.insert_one(user)
+            session["user_id"] = str(result.inserted_id)
+            return redirect(url_for("dashboard"))
+        except Exception as e:
+            print(f"ERROR in signup: {e}")
+            flash("An error occurred during signup. Please try again.")
             return redirect(url_for("signup"))
-
-        hashed = generate_password_hash(password)
-
-        user = {
-            "email": email,
-            "password": hashed,
-            "created_at": datetime.utcnow(),
-            "verification_code": None,
-            "password_reset_token": None,
-        }
-        result = db.users.insert_one(user)
-        session["user_id"] = str(result.inserted_id)
-        return redirect(url_for("dashboard"))
 
     return render_template("signup.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
+        try:
+            email = request.form["email"].strip().lower()
+            password = request.form["password"]
 
-        user = db.users.find_one({"email": email})
-        if not user or not check_password_hash(user["password"], password):
-            flash("Invalid email or password.")
+            user = db.users.find_one({"email": email})
+            if not user or not check_password_hash(user["password"], password):
+                flash("Invalid email or password.")
+                return redirect(url_for("login"))
+
+            session["user_id"] = str(user["_id"])
+            return redirect(url_for("dashboard"))
+        except Exception as e:
+            print(f"ERROR in login: {e}")
+            flash("An error occurred during login. Please try again.")
             return redirect(url_for("login"))
 
-        session["user_id"] = str(user["_id"])
-        return redirect(url_for("dashboard"))
-
     return render_template("login.html")
-
-import secrets
 
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
@@ -170,8 +183,6 @@ def reset_password(token):
     return render_template("reset-password.html")
 
 #dashboard
-
-from datetime import date
 
 @app.route("/dashboard")
 def dashboard():
@@ -300,23 +311,6 @@ def save_budget_plan():
     flash("Monthly budget saved.")
     return redirect(url_for("dashboard"))
 
-    # upsert：如果当月已有 plan 就更新；没有就创建
-    db.budget_plans.update_one(
-        {"user_id": user["_id"], "year": year, "month": month},
-        {
-            "$set": {
-                "is_filled": True,
-                "total_budget": total_budget,
-                "updated_at": datetime.utcnow(),
-            },
-            "$setOnInsert": {"created_at": datetime.utcnow()},
-        },
-        upsert=True,
-    )
-
-    flash("Monthly budget saved.")
-    return redirect(url_for("dashboard"))
-
 #add expenese
 
 @app.route("/expenses/add", methods=["POST"])
@@ -361,5 +355,4 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
-    app.run(host="0.0.0.0", port=5000, debug=debug_mode)
+    app.run(debug=True)
