@@ -258,7 +258,7 @@ def dashboard():
         "month": month
     }).sort("date", -1))
 
-    # ===== Actual totals by category (for pie + bar charts) =====
+    # Aggregate chart data
     category_totals = defaultdict(float)
     total_expenses = 0.0
 
@@ -270,13 +270,12 @@ def dashboard():
 
     category_totals = dict(category_totals)
 
-    # ===== Planned totals by category (from budget plan) =====
+    # Get planned budgets by category
     if plan and isinstance(plan.get("category_budgets"), dict):
         planned_category_budgets = plan["category_budgets"]
     else:
         planned_category_budgets = {}
 
-    # For clarity, actual by category just reuses category_totals
     actual_category_totals = category_totals
 
     return render_template(

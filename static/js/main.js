@@ -31,17 +31,9 @@ inputsToUnlock.forEach(el => {
   // ===================================
   
   let categories = [];
-  let currentMonth = 11; // Default to November
-  let currentYear = 2025;
-  let currentPeriod = localStorage.getItem('selectedPeriod') || 'Monthly';
+  let currentPeriod = 'Monthly';
   let totalBudgetLocked = false;
   let totalBudgetAmount = 0;
-
-  // Month names for display
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
 
   // ===================================
   // DOM Elements
@@ -99,12 +91,6 @@ inputsToUnlock.forEach(el => {
   
   function openModal() {
     if (modal) {
-      const modalTitle = document.querySelector(".modal-title");
-      if (modalTitle) {
-          modalTitle.textContent = `Budget for ${currentMonth}/${currentYear}`;
-      }
-
-      loadBudgetForMonth(); 
       modal.classList.add("show");
     }
   }
@@ -115,12 +101,7 @@ inputsToUnlock.forEach(el => {
 
   if (openBtn) openBtn.addEventListener("click", openModal);
   if (fab) fab.addEventListener("click", openModal);
-
-  document.addEventListener("click", function(e) {
-    if (e.target && e.target.id === "set-budget-btn-inner") {
-      openModal();
-    }
-  });
+  if (setBudgetBtn) setBudgetBtn.addEventListener("click", openModal);
 
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
@@ -142,99 +123,24 @@ inputsToUnlock.forEach(el => {
   
   if (monthSelector) {
     monthSelector.addEventListener("change", function() {
-      currentMonth = parseInt(this.value);
-      updateBudgetDisplay();
-      updateMonthDisplay();
+      // Reload page with selected month
+      window.location.href = `${window.location.pathname}?month=${this.value}`;
     });
-  }
-
-  function updateMonthDisplay() {
-    if (budgetMonthDisplay) {
-      budgetMonthDisplay.textContent = `${monthNames[currentMonth - 1]} ${currentYear}`;
-    }
   }
 
   // ===================================
   // Period Tab Switching
   // ===================================
   
-  // Set initial active tab based on stored period
-  periodTabs.forEach(tab => {
-    if (tab.textContent.trim() === currentPeriod) {
-      tab.classList.add("active");
-    } else {
-      tab.classList.remove("active");
-    }
-  });
-  
-  // Update title on load
-  updateSpendingTrendTitle();
-  
   periodTabs.forEach(tab => {
     tab.addEventListener("click", function() {
       periodTabs.forEach(t => t.classList.remove("active"));
       this.classList.add("active");
       currentPeriod = this.textContent.trim();
-      localStorage.setItem('selectedPeriod', currentPeriod);
-      updateSpendingTrendTitle();
     });
   });
 
-  function updateSpendingTrendTitle() {
-    if (spendingTrendTitle) {
-      spendingTrendTitle.textContent = `${currentPeriod} Spending Trend`;
-    }
-  }
-
-  // ===================================
-  // Budget Display
-  // ===================================
-  
-  function updateBudgetDisplay() {
-    if (!budgetDisplayArea) return;
-    
-    const monthKey = `${currentYear}-${currentMonth}`;
-    const savedBudgets = JSON.parse(localStorage.getItem('monthlyBudgets') || '{}');
-    const currentBudget = savedBudgets[monthKey];
-    
-    if (!currentBudget || currentBudget.categories.length === 0) {
-      budgetDisplayArea.innerHTML = `
-        <div class="empty-state">
-          <p class="empty-state-text">No budget set for this month</p>
-          <button class="btn-primary" id="set-budget-btn-inner">
-            <span class="btn-icon">+</span>
-            Set Monthly Budget
-          </button>
-        </div>
-      `;
-    } else {
-      let categoriesHTML = '<div class="budget-categories-grid">';
-      
-      currentBudget.categories.forEach(cat => {
-        categoriesHTML += `
-          <div class="budget-category-item">
-            <div class="budget-category-name">${cat.category}</div>
-            <div class="budget-category-amount">$${cat.amount.toFixed(2)}</div>
-          </div>
-        `;
-      });
-      
-      categoriesHTML += '</div>';
-      
-      const totalLockedBadge = currentBudget.totalLocked ? '<span style="color: var(--color-warning); font-weight: 600; margin-left: var(--spacing-sm);">LOCKED</span>' : '';
-      
-      categoriesHTML += `
-        <div style="margin-top: var(--spacing-lg); padding-top: var(--spacing-lg); border-top: 1px solid var(--color-border);">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; font-size: var(--font-size-lg);">Total Budget: ${totalLockedBadge}</span>
-            <span style="font-weight: 700; font-size: var(--font-size-2xl); color: var(--color-secondary);">$${currentBudget.total.toFixed(2)}</span>
-          </div>
-        </div>
-      `;
-      
-      budgetDisplayArea.innerHTML = categoriesHTML;
-    }
-  }
+  // Budget display is server-rendered from MongoDB
 
   // ===================================
   // Total Budget Management
@@ -563,8 +469,6 @@ inputsToUnlock.forEach(el => {
       }
 
       totalBudgetAmount = inputVal;
-      
-
       updateExtraCategory();
 
       const sum = categories
@@ -578,123 +482,14 @@ inputsToUnlock.forEach(el => {
         return;
       }
       
-      const monthKey = `${currentYear}-${currentMonth}`;
-      const savedBudgets = JSON.parse(localStorage.getItem('monthlyBudgets') || '{}');
-      
-      savedBudgets[monthKey] = {
-        categories: categories,
-        total: totalBudgetAmount,
-        totalLocked: totalBudgetLocked
-      };
-      
-      localStorage.setItem('monthlyBudgets', JSON.stringify(savedBudgets));
-      
       if (categoriesJsonInput) {
         categoriesJsonInput.value = JSON.stringify(categories);
       }
       
-      showFlashMessage('Budget saved successfully!');
-      updateBudgetDisplay();
-      closeModal();
+      // Submit to MongoDB backend
+      budgetForm.submit();
     });
   }
 
-  function showFlashMessage(message) {
-    const flashContainer = document.querySelector('.flash-messages') || createFlashContainer();
-    const flashMsg = document.createElement('div');
-    flashMsg.className = 'flash-message';
-    flashMsg.textContent = message;
-    flashContainer.appendChild(flashMsg);
-    
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-      flashMsg.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-      flashMsg.style.opacity = '0';
-      flashMsg.style.transform = 'translateX(100%)';
-      setTimeout(() => flashMsg.remove(), 500);
-    }, 3000);
-  }
-
-  function createFlashContainer() {
-    const container = document.createElement('div');
-    container.className = 'flash-messages';
-    document.body.appendChild(container);
-    return container;
-  }
-
-  // ===================================
-  // Load Budget for Selected Month
-  // ===================================
-  
-  function loadBudgetForMonth() {
-    const monthKey = `${currentYear}-${currentMonth}`;
-    const savedBudgets = JSON.parse(localStorage.getItem('monthlyBudgets') || '{}');
-    const currentBudget = savedBudgets[monthKey];
-    
-    if (currentBudget) {
-      categories = JSON.parse(JSON.stringify(currentBudget.categories || [])); // Deep copy
-      totalBudgetLocked = currentBudget.totalLocked || false;
-      totalBudgetAmount = currentBudget.total || 0;
-      
-      if (totalBudgetInput) {
-        totalBudgetInput.value = currentBudget.total.toFixed(2);
-        totalBudgetInput.disabled = totalBudgetLocked;
-      }
-      
-      if (lockTotalBudgetBtn) {
-        if (totalBudgetLocked) {
-          lockTotalBudgetBtn.textContent = "LOCKED";
-          lockTotalBudgetBtn.disabled = true;
-          lockTotalBudgetBtn.style.backgroundColor = "var(--color-accent-gray)";
-          lockTotalBudgetBtn.style.cursor = "not-allowed";
-          
-          if (lockWarning) {
-            lockWarning.style.display = 'block';
-          }
-        } else {
-          lockTotalBudgetBtn.textContent = "Lock Budget";
-          lockTotalBudgetBtn.disabled = false;
-          lockTotalBudgetBtn.style.backgroundColor = "";
-          lockTotalBudgetBtn.style.cursor = "pointer";
-          
-          if (lockWarning) {
-            lockWarning.style.display = 'none';
-          }
-        }
-      }
-    } else {
-      categories = [];
-      totalBudgetLocked = false;
-      totalBudgetAmount = 0;
-      
-      if (totalBudgetInput) {
-        totalBudgetInput.value = '';
-        totalBudgetInput.disabled = false;
-      }
-      
-      if (lockTotalBudgetBtn) {
-        lockTotalBudgetBtn.textContent = "Lock Budget";
-        lockTotalBudgetBtn.disabled = false;
-        lockTotalBudgetBtn.style.backgroundColor = "";
-        lockTotalBudgetBtn.style.cursor = "pointer";
-      }
-      
-      if (lockWarning) {
-        lockWarning.style.display = 'none';
-      }
-      
-      if (budgetErrorMessage) {
-        budgetErrorMessage.style.display = 'none';
-      }
-    }
-    
-    renderCategoryTable();
-  }
-
-  // ===================================
-  // Initialize on Page Load
-  // ===================================
-  
-  updateMonthDisplay();
-  updateBudgetDisplay();
+  // No initialization needed - data loaded from MongoDB server-side
 });

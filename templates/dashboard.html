@@ -62,13 +62,33 @@
         </div>
         
         <div id="budget-display-area" class="budget-display">
-            <div class="empty-state">
-                <p class="empty-state-text">No budget set for this month</p>
-                <button class="btn-primary" id="set-budget-btn">
-                    <span class="btn-icon">+</span>
-                    Set Monthly Budget
-                </button>
-            </div>
+            {% if plan and plan.category_budgets %}
+                <div class="budget-categories-grid">
+                    {% for category, amount in plan.category_budgets.items() %}
+                    <div class="budget-category-item">
+                        <div class="budget-category-name">{{ category }}</div>
+                        <div class="budget-category-amount">${{ "%.2f"|format(amount) }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if plan.total_budget %}
+                <div style="margin-top: var(--spacing-lg); padding-top: var(--spacing-lg); border-top: 1px solid var(--color-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; font-size: var(--font-size-lg);">Total Budget:{% if plan.is_locked %} <span style="color: var(--color-warning); font-weight: 600; margin-left: var(--spacing-sm);">LOCKED</span>{% endif %}</span>
+                        <span style="font-weight: 700; font-size: var(--font-size-2xl); color: var(--color-secondary);">${{ "%.2f"|format(plan.total_budget) }}</span>
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <p class="empty-state-text">No budget set for this month</p>
+                    <button class="btn-primary" id="set-budget-btn">
+                        <span class="btn-icon">+</span>
+                        Set Monthly Budget
+                    </button>
+                </div>
+            {% endif %}
         </div>
     </section>
 
@@ -81,22 +101,11 @@
         </div>
     </section>
 
-    <section class="card">
-        <h2 class="card-title" id="spending-trend-title">Monthly Spending Trend</h2>
-        <div id="spending-chart" class="chart-container">
-            <div class="empty-state">
-                <p class="empty-state-text">No data available yet</p>
-            </div>
-        </div>
-    </section>
-
     <div class="charts-grid">
         <section class="card">
             <h2 class="card-title">Spending by Category</h2>
-
             {% if total_expenses > 0 %}
                 <div class="chart-container">
-                    <!-- Pie chart will render here -->
                     <canvas id="expensePieChart"></canvas>
                 </div>
             {% else %}
@@ -107,15 +116,14 @@
         </section>
         
         <section class="card">
-            <h2 class="card-title">Planned vs Actual by Category</h2>
-
+            <h2 class="card-title">Planned vs Actual</h2>
             {% if planned_category_budgets or actual_category_totals %}
                 <div class="chart-container">
                     <canvas id="plannedActualChart"></canvas>
                 </div>
             {% else %}
                 <div class="empty-state">
-                    <p class="empty-state-text">No data yet</p>
+                    <p class="empty-state-text">No budget data yet</p>
                 </div>
             {% endif %}
         </section>
@@ -510,120 +518,108 @@ document.addEventListener("DOMContentLoaded", function () {
   renderCategoryTable();
   updateTotalIfNotEdited();
 
-    // =========================
-    // Pie chart: Spending by Category (Actual)
-    // =========================
-    const categoryTotals = {{ category_totals | default({}) | tojson }};
-    const pieLabels = Object.keys(categoryTotals);
-    const pieData = Object.values(categoryTotals);
+  // ===================================
+  // Chart.js Visualizations
+  // ===================================
+  
+  // Pie Chart: Spending by Category
+  const categoryTotals = {{ category_totals | default({}) | tojson }};
+  const pieLabels = Object.keys(categoryTotals);
+  const pieData = Object.values(categoryTotals);
 
-    if (pieLabels.length > 0) {
-        const pieCtx = document.getElementById('expensePieChart').getContext('2d');
-
-        new Chart(pieCtx, {
-            type: 'pie',
-            data: {
-                labels: pieLabels,
-                datasets: [{
-                    data: pieData,
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    },
-                    title: {
-                        display: true,
-                        text: 'Monthly Expenses by Category'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(ctx) {
-                                const value = ctx.raw || 0;
-                                const total = pieData.reduce((a, b) => a + b, 0);
-                                const pct = total ? (value / total * 100).toFixed(1) : 0;
-                                return `${ctx.label}: $${value.toFixed(2)} (${pct}%)`;
-                            }
-                        }
-                    }
-                }
+  if (pieLabels.length > 0) {
+    const pieCtx = document.getElementById('expensePieChart').getContext('2d');
+    new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: pieLabels,
+        datasets: [{
+          data: pieData,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const value = ctx.raw || 0;
+                const total = pieData.reduce((a, b) => a + b, 0);
+                const pct = total ? (value / total * 100).toFixed(1) : 0;
+                return `${ctx.label}: $${value.toFixed(2)} (${pct}%)`;
+              }
             }
-        });
-    }
-
-    // =========================
-    // Bar chart: Planned vs Actual by Category
-    // =========================
-    const planned = {{ planned_category_budgets | default({}) | tojson }};
-    const actual  = {{ actual_category_totals  | default({}) | tojson }};
-
-    const allCategories = Array.from(
-        new Set([
-            ...Object.keys(planned || {}),
-            ...Object.keys(actual || {})
-        ])
-    );
-
-    if (allCategories.length > 0) {
-        const plannedData = allCategories.map(cat => (planned && planned[cat]) ? Number(planned[cat]) : 0);
-        const actualData  = allCategories.map(cat => (actual  && actual[cat])  ? Number(actual[cat])  : 0);
-
-        const barCanvas = document.getElementById('plannedActualChart');
-        if (barCanvas) {
-            const barCtx = barCanvas.getContext('2d');
-
-            new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: allCategories,
-                    datasets: [
-                        {
-                            label: 'Planned',
-                            data: plannedData,
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Actual',
-                            data: actualData,
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '$' + value;
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Planned vs Actual Spending'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(ctx) {
-                                    const v = ctx.raw || 0;
-                                    return `${ctx.dataset.label}: $${v.toFixed(2)}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+          }
         }
-    }
+      }
+    });
+  }
+
+  // Bar Chart: Planned vs Actual by Category
+  const planned = {{ planned_category_budgets | default({}) | tojson }};
+  const actual = {{ actual_category_totals | default({}) | tojson }};
+
+  const allCategories = Array.from(
+    new Set([...Object.keys(planned || {}), ...Object.keys(actual || {})])
+  );
+
+  if (allCategories.length > 0) {
+    const plannedData = allCategories.map(cat => (planned && planned[cat]) ? Number(planned[cat]) : 0);
+    const actualData = allCategories.map(cat => (actual && actual[cat]) ? Number(actual[cat]) : 0);
+
+    const barCtx = document.getElementById('plannedActualChart').getContext('2d');
+    new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: allCategories,
+        datasets: [
+          {
+            label: 'Planned',
+            data: plannedData,
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Actual',
+            data: actualData,
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '$' + value;
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const v = ctx.raw || 0;
+                return `${ctx.dataset.label}: $${v.toFixed(2)}`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+});
 </script>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
