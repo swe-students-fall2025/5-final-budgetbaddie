@@ -772,6 +772,48 @@ select {
     animation: modalSlideIn 0.3s ease-out;
 }
 
+<<<<<<< HEAD
+
+/* Edit & Delete & lock icons */
+.icon-button.edit-btn img,
+.icon-button.delete-btn img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: 0.85;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+/* hover design*/
+.icon-button.edit-btn:hover img,
+.icon-button.delete-btn:hover img {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+
+/* Lock button style */
+.lock-button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.lock-button img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    opacity: 0.85;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+/* Hover */
+.lock-button:hover img {
+    transform: scale(1.15);
+    opacity: 1;
+}
+
 @keyframes modalSlideIn {
     from {
         transform: translateY(-20px);
