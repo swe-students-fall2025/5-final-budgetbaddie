@@ -10,6 +10,8 @@ import secrets
 import json
 from datetime import date
 from collections import defaultdict
+import traceback
+import sys
 
 load_dotenv()
 
@@ -28,15 +30,37 @@ mail = Mail(app)
 
 # MongoDB connection - use MONGO_URI from environment or fallback to localhost
 mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/budgetbaddie")
+print(f"Attempting to connect to MongoDB with URI: {mongo_uri}", file=sys.stderr)
+
 try:
-    client = MongoClient(mongo_uri)
-    db = client["budgetbaddie"]
+    # Create client with connection timeout
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+    
+    # Extract database name from URI or use default
+    # Format: mongodb://host:port/database_name
+    db_name = "budgetbaddie"  # default
+    try:
+        # Try to extract database name from URI
+        uri_parts = mongo_uri.split("//")
+        if len(uri_parts) > 1:
+            path_part = uri_parts[1].split("/")
+            if len(path_part) > 1:
+                potential_db = path_part[1].split("?")[0]  # Remove query params
+                if potential_db:
+                    db_name = potential_db
+    except Exception:
+        pass  # Use default if extraction fails
+    
+    db = client[db_name]
+    
     # Test the connection
     client.admin.command('ping')
-    print(f"Successfully connected to MongoDB at {mongo_uri}")
+    print(f"Successfully connected to MongoDB at {mongo_uri}, database: {db_name}", file=sys.stderr)
 except Exception as e:
-    print(f"ERROR: Failed to connect to MongoDB: {e}")
-    print(f"MONGO_URI was: {mongo_uri}")
+    error_trace = traceback.format_exc()
+    print(f"ERROR: Failed to connect to MongoDB: {e}", file=sys.stderr)
+    print(f"MONGO_URI was: {mongo_uri}", file=sys.stderr)
+    print(f"Traceback: {error_trace}", file=sys.stderr)
     raise
 
 def send_reset_email(user, token):
@@ -76,6 +100,14 @@ def signup():
             email = request.form["email"].strip().lower()
             password = request.form["password"]
 
+            # Test MongoDB connection before proceeding
+            try:
+                client.admin.command('ping')
+            except Exception as conn_err:
+                print(f"ERROR: MongoDB connection lost: {conn_err}", file=sys.stderr)
+                flash("Database connection error. Please try again.")
+                return redirect(url_for("signup"))
+
             existing = db.users.find_one({"email": email})
             if existing:
                 flash("Email already registered.")
@@ -94,8 +126,11 @@ def signup():
             session["user_id"] = str(result.inserted_id)
             return redirect(url_for("dashboard"))
         except Exception as e:
-            print(f"ERROR in signup: {e}")
-            flash("An error occurred during signup. Please try again.")
+            error_msg = str(e)
+            error_trace = traceback.format_exc()
+            print(f"ERROR in signup: {error_msg}", file=sys.stderr)
+            print(f"Traceback: {error_trace}", file=sys.stderr)
+            flash(f"An error occurred during signup: {error_msg}")
             return redirect(url_for("signup"))
 
     return render_template("signup.html")
@@ -353,6 +388,14 @@ def logout():
 @app.route("/")
 def index():
     return redirect(url_for("login"))
+
+# Add error handler to log all exceptions
+@app.errorhandler(500)
+def internal_error(error):
+    error_trace = traceback.format_exc()
+    print(f"INTERNAL SERVER ERROR: {error}", file=sys.stderr)
+    print(f"Traceback: {error_trace}", file=sys.stderr)
+    return "Internal Server Error", 500
 
 if __name__ == "__main__":
     # Bind to 0.0.0.0 to make it accessible from outside the container
