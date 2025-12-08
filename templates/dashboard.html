@@ -1,0 +1,819 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="top-bar">
+  <h2 class="greeting">Hello, {{ user.email }}</h2>
+
+  <div class="top-icons">
+    <button id="open-budget-modal" class="icon-button">
+      <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
+      <span class="tooltip">Set Budget</span>
+    </button>
+
+    <!-- ========== 费用按钮 + 下方两个小按钮 ========== -->
+    <div class="expense-wrapper">
+      <button id="open-expense-modal" class="icon-button">
+        <img src="{{ url_for('static', filename='expense.png') }}" alt="Add Expense" class="budget-icon">
+        <span class="tooltip">Add Income/Expenses</span>
+      </button>
+
+      <div id="add-ie-choices" class="add-ie-choices" style="display: none;">
+        <button id="choose-income" class="icon-button">
+          <img src="{{ url_for('static', filename='income.png') }}" 
+               alt="Add Income" class="budget-icon">
+          <span class="tooltip">Add Income</span>
+        </button>
+
+        <button id="choose-expense" class="icon-button">
+          <img src="{{ url_for('static', filename='add_expense.png') }}" 
+               alt="Add Expense" class="budget-icon">
+          <span class="tooltip">Add Expense</span>
+        </button>
+      </div>
+    </div>
+    <!-- ========== 费用按钮区域结束 ========== -->
+
+    <button id="open-search-modal" class="icon-button">
+      <img src="{{ url_for('static', filename='search.png') }}" alt="Search" class="budget-icon">
+      <span class="tooltip">Search Entries</span>
+    </button>
+
+    <a href="{{ url_for('logout') }}" class="logout-button">
+      <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+      <span class="tooltip">Logout</span>
+    </a>
+  </div>
+</div>
+
+
+<!-- Budget modal -->
+<div id="budget-modal" class="modal {% if need_budget_popup %}show{% endif %}">
+  <div class="modal-content">
+    <h3>
+      Budget for {{ current_month }}/{{ current_year }}
+      {% if plan and plan.is_locked %}(Locked){% endif %}
+    </h3>
+
+    <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
+      <input type="hidden" name="year" value="{{ current_year }}">
+      <input type="hidden" name="month" value="{{ current_month }}">
+
+      <!-- JSON for category budgets -->
+      <input type="hidden" name="categories_json" id="categories-json">
+
+      <!-- Category dropdown + New category input -->
+      <div class="field-row">
+        <label>Category</label>
+        <select id="category-select" {% if not can_edit_budget %}disabled{% endif %}>
+          <option value="" disabled selected>Choose existing category</option>
+          <option value="Rent">Rent</option>
+          <option value="Groceries">Groceries</option>
+          <option value="Transport">Transport</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="New">+ New category...</option>
+        </select>
+
+        <input
+          type="text"
+          id="new-category-input"
+          placeholder="New category name"
+          style="display:none;"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+      </div>
+
+      <!-- Amount input -->
+      <div class="field-row">
+        <label>Amount for this category</label>
+        <input
+          type="number"
+          step="0.01"
+          id="category-amount-input"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+        <button
+          type="button"
+          id="add-category-btn"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+          Add to plan
+        </button>
+      </div>
+
+      <!-- Category table -->
+      <div class="field-row">
+        <h4>Current budgets</h4>
+        <table id="category-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Amount</th>
+              {% if can_edit_budget %}
+              <th>Actions</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Filled by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Total budget (auto sum, but editable) -->
+      <div class="field-row">
+        <label>Total monthly budget</label>
+        <input
+          type="number"
+          step="0.01"
+          name="total_budget"
+          id="total-budget-input"
+          placeholder="Auto sum of categories..."
+          value="{{ plan.total_budget if plan else '' }}"
+          {% if not can_edit_budget %}disabled{% endif %}
+        >
+      </div>
+
+      {% if can_edit_budget %}
+      <div class="field-row">
+        <label class="lock-wrapper">
+          <input type="checkbox" name="lock_budget" id="lock-budget-checkbox">
+          <img
+            src="{{ url_for('static', filename='lock.png') }}"
+            alt="Lock"
+            class="lock-icon"
+            title="Click to lock the budget amount, you won't be able to make changes until next month!"
+          >
+          <span>Lock this month's budget</span>
+        </label>
+      </div>
+
+      <button type="submit">Save</button>
+      {% else %}
+      <p>This month's budget is locked. You can only view it.</p>
+      {% endif %}
+    </form>
+
+    <button type="button" id="close-budget-modal" class="close-btn">Close</button>
+  </div>
+</div>
+
+<!-- 简单预算总览（非弹窗） -->
+{% if not need_budget_popup %}
+<section class="budget-diagram">
+  <h3>Your this month's budget</h3>
+  <div id="budget-chart">
+    <p>$ {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
+  </div>
+</section>
+{% endif %}
+
+<!-- ========= Add Expense modal ========= -->
+<div id="expense-modal" class="modal">
+  <div class="modal-content">
+    <h3>Add Expense</h3>
+
+    <form id="expense-form" method="POST" action="{{ url_for('add_expense') }}">
+      <div class="field-row">
+        <label>Date</label>
+        <input type="date" name="date" required>
+      </div>
+
+      <div class="field-row">
+        <label>Category</label>
+
+        <!-- 下拉选已有预算里的分类 -->
+        <select id="expense-category-select">
+          <option value="" disabled selected>Choose category</option>
+          {% if plan and plan.category_budgets %}
+            {% for cat in plan.category_budgets.keys() %}
+              <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          {% endif %}
+          <option value="__new__">+ New category...</option>
+        </select>
+
+        <!-- 新分类输入框 -->
+        <input
+          type="text"
+          id="expense-new-category-input"
+          placeholder="New category name"
+          style="display:none;"
+        >
+
+        <!-- 真正提交给后端的字段 -->
+        <input type="hidden" name="category" id="expense-category-final">
+      </div>
+
+      <div class="field-row">
+        <label>Amount</label>
+        <input type="number" step="0.01" name="amount" required>
+      </div>
+
+      <div class="field-row">
+        <label>Note</label>
+        <textarea
+          name="note"
+          id="expense-note"
+          rows="3"
+          placeholder="Optional note for this expense"
+        ></textarea>
+      </div>
+
+      <div class="field-row">
+        <label>
+          <input type="checkbox" name="is_recurring">
+          Recurring
+        </label>
+      </div>
+
+      <button type="submit">Add</button>
+      <button type="button" id="close-expense-modal" class="close-btn">Close</button>
+    </form>
+  </div>
+</div>
+
+<section class="expense-list">
+  <h3>Your this month's expenses</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Category</th>
+        <th>Amount</th>
+        <th>Recurring</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in expenses %}
+      <tr>
+        <td>{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
+        <td>{{ e.category }}</td>
+        <td>{{ '%.2f'|format(e.amount) }}</td>
+        <td>{{ 'Yes' if e.is_recurring else 'No' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+
+
+<!-- ========= Add Income modal ========= -->
+<!-- ========= Add Income modal ========= -->
+<div id="income-modal" class="modal">
+  <div class="modal-content">
+    <h3>Add Income</h3>
+
+    <form id="income-form" method="POST" action="{{ url_for('add_income') }}">
+      <!-- 日期 -->
+      <div class="field-row">
+        <label>Date</label>
+        <input type="date" name="date" required>
+      </div>
+
+      <!-- 收入来源 -->
+      <div class="field-row">
+        <label>Source</label>
+        <input
+          type="text"
+          name="source"
+          placeholder="Salary, refund, bonus..."
+          required
+        >
+      </div>
+
+      <!-- 金额 -->
+      <div class="field-row">
+        <label>Amount</label>
+        <input type="number" step="0.01" name="amount" required>
+      </div>
+
+      <!-- Recurring + 下拉框 -->
+      <div class="field-row income-recurring-row">
+        <label class="checkbox-inline">
+          <input
+            type="checkbox"
+            id="income-recurring-checkbox"
+            name="is_recurring"
+          >
+          Recurring
+        </label>
+
+        <select
+          id="income-recurring-select"
+          name="recurrence_pattern"
+          class="recurring-select"
+          style="display:none;"
+        >
+          <option value="none">Does not repeat</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly on this date</option>
+          <option value="yearly">Annually on this date</option>
+          <option value="weekday">Every weekday (Mon–Fri)</option>
+        </select>
+      </div>
+
+      <!-- 备注 -->
+      <div class="field-row">
+        <label>Note</label>
+        <textarea
+          name="note"
+          rows="2"
+          placeholder="Optional note for this income"
+        ></textarea>
+      </div>
+
+      <button type="submit">Add</button>
+      <button type="button" id="close-income-modal" class="close-btn">Close</button>
+    </form>
+  </div>
+</div>
+
+
+
+<!-- 所有 JS 合并到一个 DOMContentLoaded 里 -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ======================================================
+  // 1. 统一获取所有和弹窗 / 按钮相关的 DOM 元素
+  // ======================================================
+  const budgetModal        = document.getElementById("budget-modal");
+  const openBudgetBtn      = document.getElementById("open-budget-modal");
+  const closeBudgetBtn     = document.getElementById("close-budget-modal");
+
+  const expenseModal       = document.getElementById("expense-modal");
+  const openExpenseBtn     = document.getElementById("open-expense-modal");
+  const closeExpenseBtn    = document.getElementById("close-expense-modal");
+
+  const incomeModal        = document.getElementById("income-modal");
+  const closeIncomeBtn     = document.getElementById("close-income-modal");
+
+  // 这就是下面那两个小按钮所在的容器（默认 display:none）
+  const choiceContainer    = document.getElementById("add-ie-choices");
+  const chooseIncomeBtn    = document.getElementById("choose-income");
+  const chooseExpenseBtn   = document.getElementById("choose-expense");
+
+  const incomeForm               = document.getElementById("income-form");
+  const incomeRecurringCheckbox  = document.getElementById("income-recurring-checkbox");
+  const incomeRecurringSelect    = document.getElementById("income-recurring-select");
+
+
+  // ======================================================
+  // 2. 顶部大 Expense 图标：显示 / 隐藏 两个小按钮
+  //    点击大 expense.png -> 展示/收起 income & add_expense
+  // ======================================================
+  if (openExpenseBtn && choiceContainer) {
+    openExpenseBtn.addEventListener("click", function () {
+      const currentDisplay = choiceContainer.style.display;
+
+      // 默认是 "", 或者 "none" 视为隐藏
+      const isHidden = (currentDisplay === "" || currentDisplay === "none");
+      choiceContainer.style.display = isHidden ? "flex" : "none";
+    });
+  }
+
+
+
+  // ======================================================
+  // 3. 小按钮逻辑：
+  //    - 左边 income.png  -> 打开 income modal
+  //    - 右边 add_expense.png -> 打开 expense modal
+  // ======================================================
+  // ======================================================
+  // X. Income 表单：Recurring 复选框控制下拉框显示
+  // ======================================================
+  if (incomeRecurringCheckbox && incomeRecurringSelect) {
+    incomeRecurringCheckbox.addEventListener("change", function () {
+      if (this.checked) {
+        incomeRecurringSelect.style.display = "inline-block";
+        // 默认选中 "Does not repeat"，用户可以改
+        if (!incomeRecurringSelect.value) {
+          incomeRecurringSelect.value = "none";
+        }
+      } else {
+        incomeRecurringSelect.style.display = "none";
+        incomeRecurringSelect.value = "none";
+      }
+    });
+  }
+
+  // 如果以后想对 income 提交做额外校验，也可以在这里：
+  // if (incomeForm) {
+  //   incomeForm.addEventListener("submit", function (e) {
+  //     // 自定义校验逻辑...
+  //   });
+  // }
+
+  // 点击 income 小按钮 -> 打开 income 弹窗
+  if (chooseIncomeBtn && incomeModal) {
+    chooseIncomeBtn.addEventListener("click", function () {
+      incomeModal.classList.add("show");
+    });
+  }
+
+  // 关闭 income 弹窗
+  if (closeIncomeBtn && incomeModal) {
+    closeIncomeBtn.addEventListener("click", function () {
+      incomeModal.classList.remove("show");
+    });
+  }
+
+  // 点击 income 弹窗外部区域 -> 关闭
+  if (incomeModal) {
+    incomeModal.addEventListener("click", function (event) {
+      if (event.target === incomeModal) {
+        incomeModal.classList.remove("show");
+      }
+    });
+  }
+
+  // 点击 expense 小按钮 -> 打开已有的 Add Expense 弹窗
+  if (chooseExpenseBtn && expenseModal) {
+    chooseExpenseBtn.addEventListener("click", function () {
+      expenseModal.classList.add("show");
+    });
+  }
+
+
+
+  // ======================================================
+  // 4. 原本的大 Expense 弹窗（如果你以后还想直接用）
+  //    现在主要由小按钮控制，但保留关闭逻辑
+  // ======================================================
+
+  // 关闭 expense 弹窗
+  if (closeExpenseBtn && expenseModal) {
+    closeExpenseBtn.addEventListener("click", function () {
+      expenseModal.classList.remove("show");
+    });
+  }
+
+  // 点击 expense 弹窗外部区域 -> 关闭
+  if (expenseModal) {
+    expenseModal.addEventListener("click", function (event) {
+      if (event.target === expenseModal) {
+        expenseModal.classList.remove("show");
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 5. Expense 表单里：分类选择逻辑（老功能保留）
+  //    - 选择已有分类
+  //    - 选择 "+ New category..." 时出现新的输入框
+  //    - 提交前把最终分类写入隐藏字段
+  // ======================================================
+  const expenseCategorySelect = document.getElementById("expense-category-select");
+  const expenseNewCategory    = document.getElementById("expense-new-category-input");
+  const expenseCategoryFinal  = document.getElementById("expense-category-final");
+  const expenseForm           = document.getElementById("expense-form");
+
+  if (expenseCategorySelect && expenseNewCategory) {
+    expenseCategorySelect.addEventListener("change", function () {
+      if (this.value === "__new__") {
+        expenseNewCategory.style.display = "inline-block";
+        expenseNewCategory.focus();
+      } else {
+        expenseNewCategory.style.display = "none";
+        expenseNewCategory.value = "";
+      }
+    });
+  }
+
+  if (expenseForm) {
+    expenseForm.addEventListener("submit", function (e) {
+      let finalCategory = "";
+
+      if (expenseCategorySelect) {
+        if (expenseCategorySelect.value === "__new__") {
+          finalCategory = (expenseNewCategory.value || "").trim();
+        } else {
+          finalCategory = expenseCategorySelect.value;
+        }
+      }
+
+      if (!finalCategory) {
+        e.preventDefault();
+        alert("Please choose or enter a category.");
+        return;
+      }
+
+      if (expenseCategoryFinal) {
+        expenseCategoryFinal.value = finalCategory;
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 6. Budget 弹窗：打开 / 关闭逻辑
+  // ======================================================
+  function openBudgetModal() {
+    if (budgetModal) {
+      budgetModal.classList.add("show");
+    }
+  }
+
+  function closeBudgetModal() {
+    if (budgetModal) {
+      budgetModal.classList.remove("show");
+    }
+  }
+
+  if (openBudgetBtn) {
+    openBudgetBtn.addEventListener("click", openBudgetModal);
+  }
+
+  if (closeBudgetBtn) {
+    closeBudgetBtn.addEventListener("click", closeBudgetModal);
+  }
+
+  if (budgetModal) {
+    budgetModal.addEventListener("click", function (event) {
+      if (event.target === budgetModal) {
+        closeBudgetModal();
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 7. Budget 预算表：前端存储 + 从后端初始载入
+  //    - categories 数组保存所有 {category, amount}
+  //    - initialCategoryBudgets 从 plan.category_budgets 注入
+  // ======================================================
+  const categorySelect      = document.getElementById("category-select");
+  const newCategoryInput    = document.getElementById("new-category-input");
+  const categoryAmountInput = document.getElementById("category-amount-input");
+  const addCategoryBtn      = document.getElementById("add-category-btn");
+  const categoryTableBody   = document.querySelector("#category-table tbody");
+  const totalBudgetInput    = document.getElementById("total-budget-input");
+  const categoriesJsonInput = document.getElementById("categories-json");
+  const budgetForm          = document.getElementById("budget-form");
+
+  let categories           = [];
+  let totalEditedManually  = false;
+  let editingIndex         = null;
+
+  // 从后端读取初始 category_budgets（Jinja 注入）
+  const initialCategoryBudgets = {{ (plan.category_budgets if plan and plan.get('category_budgets') else {}) | tojson }};
+
+  for (const [name, amount] of Object.entries(initialCategoryBudgets)) {
+    categories.push({
+      category: name,
+      amount: Number(amount) || 0
+    });
+  }
+
+
+
+  // ======================================================
+  // 8. Budget：下拉框 "New" 时显示新分类输入框
+  // ======================================================
+  if (categorySelect && newCategoryInput) {
+    categorySelect.addEventListener("change", function () {
+      if (this.value === "New") {
+        newCategoryInput.style.display = "inline-block";
+        newCategoryInput.focus();
+      } else {
+        newCategoryInput.style.display = "none";
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 9. Budget：添加 / 编辑 分类
+  //    - 点击 Add to plan
+  //    - editingIndex != null 表示当前在编辑某一行
+  // ======================================================
+  if (addCategoryBtn) {
+    addCategoryBtn.addEventListener("click", function () {
+      const amountValue = parseFloat(categoryAmountInput.value);
+
+      if (isNaN(amountValue) || amountValue <= 0) {
+        alert("Please enter a valid positive amount.");
+        return;
+      }
+
+      let categoryName = null;
+
+      if (editingIndex !== null) {
+        // 编辑模式：允许修改分类名
+        if (categorySelect.value === "New") {
+          categoryName = newCategoryInput.value.trim();
+        } else if (categorySelect.value) {
+          categoryName = categorySelect.value;
+        } else {
+          categoryName = categories[editingIndex].category;
+        }
+
+        if (!categoryName) {
+          alert("Please choose or enter a category name.");
+          return;
+        }
+
+        categories[editingIndex] = {
+          category: categoryName,
+          amount: amountValue
+        };
+        editingIndex = null;  // 退出编辑模式
+
+      } else {
+        // 新增模式
+        if (categorySelect.value === "New") {
+          categoryName = newCategoryInput.value.trim();
+        } else {
+          categoryName = categorySelect.value;
+        }
+
+        if (!categoryName) {
+          alert("Please choose or enter a category name.");
+          return;
+        }
+
+        const existing = categories.find(c => c.category === categoryName);
+        if (existing) {
+          existing.amount = amountValue;
+        } else {
+          categories.push({ category: categoryName, amount: amountValue });
+        }
+      }
+
+      // 清空输入区域
+      categoryAmountInput.value = "";
+      if (categorySelect) categorySelect.value = "";
+      if (newCategoryInput) {
+        newCategoryInput.value = "";
+        newCategoryInput.style.display = "none";
+      }
+
+      renderCategoryTable();
+      updateTotalIfNotEdited();
+    });
+  }
+
+
+
+  // ======================================================
+  // 10. Budget：渲染分类表格 + 编辑 / 删除 按钮
+  // ======================================================
+  function renderCategoryTable() {
+    if (!categoryTableBody) return;
+
+    categoryTableBody.innerHTML = "";
+
+    categories.forEach((item, index) => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = item.category;
+
+      const tdAmount = document.createElement("td");
+      tdAmount.textContent = item.amount.toFixed(2);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdAmount);
+
+      {% if can_edit_budget %}
+      // ---- Actions: Edit / Delete ----
+      const tdActions = document.createElement("td");
+
+      // Edit 按钮
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "icon-button edit-btn";
+
+      const editImg = document.createElement("img");
+      editImg.src = "{{ url_for('static', filename='edit.png') }}";
+      editImg.alt = "Edit";
+      editBtn.appendChild(editImg);
+
+      editBtn.addEventListener("click", function () {
+        editingIndex = index;
+
+        if (categoryAmountInput) {
+          categoryAmountInput.value = item.amount.toFixed(2);
+        }
+
+        if (categorySelect && newCategoryInput) {
+          const values = Array.from(categorySelect.options).map(o => o.value);
+          if (values.includes(item.category)) {
+            categorySelect.value = item.category;
+            newCategoryInput.value = "";
+            newCategoryInput.style.display = "none";
+          } else {
+            categorySelect.value = "New";
+            newCategoryInput.value = item.category;
+            newCategoryInput.style.display = "inline-block";
+          }
+        }
+      });
+
+      // Delete 按钮
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "icon-button delete-btn";
+
+      const deleteImg = document.createElement("img");
+      deleteImg.src = "{{ url_for('static', filename='delete.png') }}";
+      deleteImg.alt = "Delete";
+      deleteBtn.appendChild(deleteImg);
+
+      deleteBtn.addEventListener("click", function () {
+        categories.splice(index, 1);
+
+        if (editingIndex === index) {
+          editingIndex = null;
+          if (categoryAmountInput) categoryAmountInput.value = "";
+        }
+
+        totalEditedManually = false;
+        renderCategoryTable();
+        updateTotalIfNotEdited();
+      });
+
+      tdActions.appendChild(editBtn);
+      tdActions.appendChild(deleteBtn);
+      tr.appendChild(tdActions);
+      {% endif %}
+
+      categoryTableBody.appendChild(tr);
+    });
+  }
+
+
+
+  // ======================================================
+  // 11. Budget：合计 total_budget 的逻辑
+  //      - 默认自动 = 所有分类金额之和
+  //      - 用户手动改 total 时，允许多出的部分作为 "extra"
+  // ======================================================
+  function getCategoriesSum() {
+    return categories.reduce((sum, c) => sum + (c.amount || 0), 0);
+  }
+
+  function updateTotalIfNotEdited() {
+    if (!totalEditedManually && totalBudgetInput) {
+      const sum = getCategoriesSum();
+      if (sum > 0) {
+        totalBudgetInput.value = sum.toFixed(2);
+      }
+    }
+  }
+
+  if (totalBudgetInput) {
+    totalBudgetInput.addEventListener("focus", function () {
+      totalEditedManually = true;
+    });
+
+    totalBudgetInput.addEventListener("blur", function () {
+      const manualTotal = parseFloat(totalBudgetInput.value);
+      const sum = getCategoriesSum();
+
+      if (!isNaN(manualTotal) && manualTotal > sum) {
+        const extraAmount = manualTotal - sum;
+        const existingExtra = categories.find(c => c.category === "extra");
+        if (existingExtra) {
+          existingExtra.amount += extraAmount;
+        } else {
+          categories.push({ category: "extra", amount: extraAmount });
+        }
+        renderCategoryTable();
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 12. Budget：表单提交时，把 categories 写入隐藏字段
+  // ======================================================
+  if (budgetForm) {
+    budgetForm.addEventListener("submit", function () {
+      if (categoriesJsonInput) {
+        categoriesJsonInput.value = JSON.stringify(categories);
+      }
+    });
+  }
+
+
+
+  // ======================================================
+  // 13. 页面加载完成后：把已有预算渲染出来
+  // ======================================================
+  renderCategoryTable();
+  updateTotalIfNotEdited();
+
+});
+</script>
+
+
+{% endblock %}

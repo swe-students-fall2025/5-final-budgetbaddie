@@ -1,0 +1,7 @@
+Flask
+Flask-Mail
+pymongo
+python-dotenv
+werkzeug
+bcrypt
+c

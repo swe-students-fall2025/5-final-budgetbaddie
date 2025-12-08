@@ -1,0 +1,183 @@
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 40px;
+}
+
+.expense-wrapper {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+}
+
+.top-icons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logout-button img{
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 12px;
+
+  position: relative;
+  display: inline-block;
+}
+
+.add-ie-choices {
+  position: absolute;
+  top: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: none;
+  flex-direction: row;
+  gap: 0.6rem;
+}
+
+.icon-button .budget-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  transition: transform 0.15s ease;
+}
+
+.icon-button:hover .budget-icon {
+  transform: scale(1.12);
+}
+
+.icon-button-small {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.icon-button-small img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  
+  transform-origin: center;
+  transform: translateX(-50%) translateY(5px);
+}
+
+.icon-button:hover .tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 10;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+}
+
+.modal.show {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+}
+
+
+/* Edit & Delete & lock icons */
+.icon-button.edit-btn img,
+.icon-button.delete-btn img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: 0.85;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+/* hover design*/
+.icon-button.edit-btn:hover img,
+.icon-button.delete-btn:hover img {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+
+/* Lock line: checkbox + icon + text */
+.lock-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.lock-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  opacity: 0.85;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.lock-wrapper:hover .lock-icon {
+  transform: scale(1.15);
+  opacity: 1;
+}
+
+
+.income-recurring-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.recurring-select {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.9rem;
+  background-color: #fff;
+}
