@@ -146,28 +146,10 @@ inputsToUnlock.forEach(el => {
   // Total Budget Management
   // ===================================
   
-  function getNonExtraSum() {
-    // Helper to calculate sum of all categories EXCEPT 'Extra'
-    return categories
-      .filter(c => c.category !== "Extra")
-      .reduce((sum, c) => sum + (c.amount || 0), 0);
-  }
-
   function setTotalBudget() {
     const inputValue = parseFloat(totalBudgetInput.value);
     
     if (isNaN(inputValue) || inputValue <= 0) {
-      return;
-    }
-    
-    // Check against the sum of actual categories (excluding Extra)
-    const requiredSum = getNonExtraSum();
-    
-    if (inputValue < requiredSum) {
-      // Show error message
-      if (budgetErrorMessage) {
-        budgetErrorMessage.style.display = 'block';
-      }
       return;
     }
     
@@ -178,9 +160,6 @@ inputsToUnlock.forEach(el => {
     
     // Set the total budget
     totalBudgetAmount = inputValue;
-    
-    // Update Extra category
-    updateExtraCategory();
   }
 
   if (totalBudgetInput) {
@@ -208,8 +187,6 @@ inputsToUnlock.forEach(el => {
       }
 
       totalBudgetAmount = val;
-
-      updateExtraCategory();
       
       if (budgetErrorMessage) {
           budgetErrorMessage.style.display = 'none';
@@ -313,29 +290,6 @@ inputsToUnlock.forEach(el => {
         return;
       }
 
-      // Check against Budget Limit
-      if (totalBudgetAmount > 0) {
-        const currentRealSpend = categories
-          .filter(c => c.category !== "Extra")
-          .reduce((sum, c) => sum + c.amount, 0);
-
-        const existingCategory = categories.find(c => c.category === categoryName);
-        const oldCategoryAmount = (existingCategory && categoryName !== "Extra") ? existingCategory.amount : 0;
-        
-        const projectedTotal = currentRealSpend - oldCategoryAmount + amountValue;
-
-        // Tolerance for float math
-        if (projectedTotal > (totalBudgetAmount + 0.001)) {
-          const available = totalBudgetAmount - (currentRealSpend - oldCategoryAmount);
-          
-          if (categoryAddError) {
-              categoryAddError.textContent = `Cannot add $${amountValue}. Only $${available.toFixed(2)} remaining.`;
-              categoryAddError.style.display = "block";
-          }
-          return; 
-        }
-      }
-
       // Success - Add to State
       const existing = categories.find(c => c.category === categoryName);
       if (existing) {
@@ -355,7 +309,7 @@ inputsToUnlock.forEach(el => {
         categorySelect.value = "";
       }
 
-      updateExtraCategory();
+      renderCategoryTable();
     });
   }
 
@@ -377,21 +331,8 @@ inputsToUnlock.forEach(el => {
       return;
     }
     
-    // Sort so "Extra" is always at the bottom
-    categories.sort((a, b) => {
-        if (a.category === "Extra") return 1;
-        if (b.category === "Extra") return -1;
-        return 0;
-    });
-    
     categories.forEach((item, index) => {
       const tr = document.createElement("tr");
-      
-      // Style "Extra" differently so it stands out
-      if (item.category === "Extra") {
-        tr.style.backgroundColor = "rgba(0, 255, 0, 0.05)";
-        tr.style.fontWeight = "bold";
-      }
 
       const tdName = document.createElement("td");
       tdName.textContent = item.category;
@@ -401,56 +342,24 @@ inputsToUnlock.forEach(el => {
       
       const tdDelete = document.createElement("td");
       
-      // Do not allow deleting "Extra" manually, it is auto-calculated
-      if (item.category !== "Extra") {
-          const deleteBtn = document.createElement("button");
-          deleteBtn.type = "button";
-          deleteBtn.textContent = "Delete";
-          deleteBtn.className = "btn-secondary";
-          deleteBtn.style.padding = "0.25rem 0.75rem";
-          deleteBtn.style.fontSize = "0.875rem";
-          deleteBtn.onclick = function(e) {
-            e.preventDefault(); 
-            // Remove the item
-            categories.splice(index, 1);
-            // Immediately Recalculate Extra to fill the void
-            updateExtraCategory();
-          };
-          tdDelete.appendChild(deleteBtn);
-      } else {
-          tdDelete.textContent = "(Auto)";
-          tdDelete.style.color = "#888";
-          tdDelete.style.fontSize = "0.8rem";
-      }
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.className = "btn-secondary";
+      deleteBtn.style.padding = "0.25rem 0.75rem";
+      deleteBtn.style.fontSize = "0.875rem";
+      deleteBtn.onclick = function(e) {
+        e.preventDefault(); 
+        categories.splice(index, 1);
+        renderCategoryTable();
+      };
+      tdDelete.appendChild(deleteBtn);
 
       tr.appendChild(tdName);
       tr.appendChild(tdAmount);
       tr.appendChild(tdDelete);
       categoryTableBody.appendChild(tr);
     });
-  }
-
-  // Helper to update "Extra" based on remaining funds
-  function updateExtraCategory() {
-    if (!totalBudgetAmount || totalBudgetAmount <= 0) {
-        renderCategoryTable();
-        return;
-    }
-    
-    categories = categories.filter(c => c.category !== "Extra");
-    
-    const currentSum = categories.reduce((sum, c) => sum + (c.amount || 0), 0);
-    
-    const remaining = totalBudgetAmount - currentSum;
-    
-    if (remaining > 0.009) {
-      categories.push({ 
-        category: "Extra", 
-        amount: remaining
-      });
-    }
-    
-    renderCategoryTable();
   }
 
   // ===================================
@@ -469,19 +378,7 @@ inputsToUnlock.forEach(el => {
       }
 
       totalBudgetAmount = inputVal;
-      updateExtraCategory();
 
-      const sum = categories
-        .filter(c => c.category !== "Extra")
-        .reduce((sum, c) => sum + (c.amount || 0), 0);
-
-      if (totalBudgetAmount < sum) {
-        if (budgetErrorMessage) {
-          budgetErrorMessage.style.display = 'block';
-        }
-        return;
-      }
-      
       if (categoriesJsonInput) {
         categoriesJsonInput.value = JSON.stringify(categories);
       }
