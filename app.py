@@ -355,4 +355,6 @@ def index():
     return redirect(url_for("login"))
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Bind to 0.0.0.0 to make it accessible from outside the container
+    # Use debug=False in production for security
+    app.run(host="0.0.0.0", port=5000, debug=False)
