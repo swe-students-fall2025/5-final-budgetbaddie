@@ -64,3 +64,6 @@ jobs:
             docker stop budget-web || true
             docker rm budget-web || true
             docker run -d --name budget-web -p 5000:5000 --env MONGO_URI=${{ secrets.MONGO_URI }} --env SECRET_KEY=${{ secrets.SECRET_KEY }} --env MAIL_USERNAME=${{ secrets.MAIL_USERNAME }} --env MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} --env MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
+            sleep 3
+            docker ps -a | grep budget-web
+            docker logs budget-web || echo "Container not running or no logs available"
