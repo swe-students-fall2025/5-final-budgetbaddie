@@ -1,0 +1,72 @@
+name: api ci/cd
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened, closed]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_DATABASE: budgetbaddie_test
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: install dependencies
+        run: |
+          cd api
+          pip install -r requirements.txt
+      
+      - name: run tests
+        env:
+          TEST_MONGO_URI: mongodb://localhost:27017/budgetbaddie_test
+        run: |
+          cd api
+          pytest tests/ --cov=app.models --cov=app.database --cov-report=term --cov-report=xml
+      
+      - name: build docker image
+        run: |
+          cd api
+          docker build -t budgetbaddie-api:latest .
+      
+      - name: push to docker hub
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: tag and push
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          docker tag budgetbaddie-api:latest ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+      
+      - name: deploy to digital ocean
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USERNAME }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+            docker stop budget-api || true
+            docker rm budget-api || true
+            docker run -d --name budget-api -p 8000:8000 --env MONGO_URI=${{ secrets.MONGO_URI }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+

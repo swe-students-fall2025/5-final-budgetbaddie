@@ -1,32 +1,145 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="top-bar">
-  <h2 class="greeting">Hello, {{ user.email }}</h2>
+<header class="main-header">
+    <div class="header-left">
+        <div class="logo">
+            <div class="logo-icon">$</div>
+            <span class="logo-text">Budget Baddie</span>
+        </div>
+        <span class="user-email">{{ user.email }}</span>
+    </div>
+    
+    <div class="header-right">
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+        </a>
+    </div>
+</header>
 
-  <div class="top-icons">
-    <button id="open-budget-modal" class="icon-button">
-      <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
-    </button>
-
-    <a href="{{ url_for('logout') }}" class="logout-button">
-      <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
+<nav class="main-nav">
+    <a href="{{ url_for('dashboard') }}" class="nav-tab active">
+        Dashboard
     </a>
-  </div>
-</div>
+    <a href="#" class="nav-tab">
+        Plans
+    </a>
+    <a href="#" class="nav-tab">
+        Expenses
+    </a>
+</nav>
 
-<!-- Budget modal -->
+<main class="main-content">
+    <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <div class="date-selector">
+            <select class="date-dropdown" id="month-selector">
+                <option value="1">January 2025</option>
+                <option value="2">February 2025</option>
+                <option value="3">March 2025</option>
+                <option value="4">April 2025</option>
+                <option value="5">May 2025</option>
+                <option value="6">June 2025</option>
+                <option value="7">July 2025</option>
+                <option value="8">August 2025</option>
+                <option value="9">September 2025</option>
+                <option value="10">October 2025</option>
+                <option value="11" selected>November 2025</option>
+                <option value="12">December 2025</option>
+            </select>
+        </div>
+    </div>
+
+    <section class="card budget-card">
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">Monthly Budget</h2>
+                <p class="card-subtitle" id="budget-month-display">November 2025</p>
+            </div>
+            <button id="open-budget-modal" class="icon-button">
+                <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget">
+            </button>
+        </div>
+        
+        <div id="budget-display-area" class="budget-display">
+            <div class="empty-state">
+                <p class="empty-state-text">No budget set for this month</p>
+                <button class="btn-primary" id="set-budget-btn">
+                    <span class="btn-icon">+</span>
+                    Set Monthly Budget
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="period-tabs">
+            <button class="period-tab active">Daily</button>
+            <button class="period-tab">Weekly</button>
+            <button class="period-tab">Monthly</button>
+            <button class="period-tab">Yearly</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title" id="spending-trend-title">Monthly Spending Trend</h2>
+        <div id="spending-chart" class="chart-container">
+            <div class="empty-state">
+                <p class="empty-state-text">No data available yet</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="charts-grid">
+        <section class="card">
+            <h2 class="card-title">Spending by Category</h2>
+
+            {% if total_expenses > 0 %}
+                <div class="chart-container">
+                    <!-- Pie chart will render here -->
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p class="empty-state-text">No expenses yet</p>
+                </div>
+            {% endif %}
+        </section>
+        
+        <section class="card">
+            <h2 class="card-title">Planned vs Actual by Category</h2>
+
+            {% if planned_category_budgets or actual_category_totals %}
+                <div class="chart-container">
+                    <canvas id="plannedActualChart"></canvas>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p class="empty-state-text">No data yet</p>
+                </div>
+            {% endif %}
+        </section>
+    </div>
+
+</main>
+
+<button class="fab">
+    <span class="fab-icon">+</span>
+</button>
+
+>>>>>>> main
 <div id="budget-modal" class="modal {% if need_budget_popup %}show{% endif %}">
-  <div class="modal-content">
-    <h3>
-      Budget for {{ current_month }}/{{ current_year }}
-      {% if plan and plan.is_locked %}(Locked){% endif %}
-    </h3>
+    <div class="modal-content">
+        <h3 class="modal-title">
+            Budget for {{ current_month }}/{{ current_year }}
+        </h3>
 
-    <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
-      <input type="hidden" name="year" value="{{ current_year }}">
-      <input type="hidden" name="month" value="{{ current_month }}">
+        <form id="budget-form" method="POST" action="{{ url_for('save_budget_plan') }}">
+            <input type="hidden" name="year" value="{{ current_year }}">
+            <input type="hidden" name="month" value="{{ current_month }}">
+            <input type="hidden" name="categories_json" id="categories-json">
 
+<<<<<<< HEAD
       <!-- JSON for category budgets -->
       <input type="hidden" name="categories_json" id="categories-json">
 
@@ -41,91 +154,124 @@
           <option value="Entertainment">Entertainment</option>
           <option value="New">+ New category...</option>
         </select>
+=======
+            <div class="form-group">
+                <label>Category</label>
+                <select id="category-select" class="form-input" {% if not can_edit_budget %}disabled{% endif %}>
+                    <option value="" disabled selected>Choose existing category</option>
+                    <option value="Rent">Rent</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="New">+ New category...</option>
+                </select>
 
-        <input
-          type="text"
-          id="new-category-input"
-          placeholder="New category name"
-          style="display:none;"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-      </div>
+                <input
+                    type="text"
+                    id="new-category-input"
+                    class="form-input"
+                    placeholder="New category name"
+                    style="display:none; margin-top: 10px;"
+                    {% if not can_edit_budget %}disabled{% endif %}
+                >
+            </div>
 
-      <!-- Amount input -->
-      <div class="field-row">
-        <label>Amount for this category</label>
-        <input
-          type="number"
-          step="0.01"
-          id="category-amount-input"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-        <button
-          type="button"
-          id="add-category-btn"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-          Add to plan
-        </button>
-      </div>
+            <div class="form-group">
+              <label>Amount for this category</label>
+                <div class="input-with-button">
+                    <input
+                        type="number"
+                        step="0.01"
+                        id="category-amount-input"
+                        class="form-input no-spinners"
+                        placeholder="0.00"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                    <button
+                        type="button"
+                        id="add-category-btn"
+                        class="btn-secondary"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                        Add to plan
+                    </button>
+                </div>
+              <div id="category-add-error" style="display: none; color: #dc3545; font-size: 0.85rem; margin-top: 5px;"></div>
+            </div>
 
-      <!-- Category table -->
-      <div class="field-row">
-        <h4>Current category budgets</h4>
-        <table id="category-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Amount</th>
-              {% if can_edit_budget %}
-              <th>Actions</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody>
-            <!-- Filled by JS -->
-          </tbody>
-        </table>
-      </div>
+            <div class="form-group">
+                <label>Current category budgets</label>
+                <div class="table-container">
+                    <table id="category-table" class="budget-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                {% if can_edit_budget %}
+                                <th>Actions</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-      <!-- Total budget (auto sum, but editable) -->
-      <div class="field-row">
-        <label>Total monthly budget</label>
-        <input
-          type="number"
-          step="0.01"
-          name="total_budget"
-          id="total-budget-input"
-          placeholder="Auto sum of categories..."
-          value="{{ plan.total_budget if plan else '' }}"
-          {% if not can_edit_budget %}disabled{% endif %}
-        >
-      </div>
+            <div class="form-group">
+                <label>Total monthly budget</label>
+                
+                <div class="input-with-button">
+                    <input
+                        type="number"
+                        step="0.01"
+                        name="total_budget"
+                        id="total-budget-input"
+                        class="form-input no-spinners"
+                        placeholder="e.g. 3000.00"
+                        value="{{ plan.total_budget if plan else '' }}"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                    <button
+                        type="button"
+                        id="set-total-btn"
+                        class="btn-secondary"
+                        {% if not can_edit_budget %}disabled{% endif %}
+                    >
+                        Set
+                    </button>
+                </div>
 
-      {% if can_edit_budget %}
-      <div class="field-row">
-        <label class="lock-wrapper">
-          <input type="checkbox" name="lock_budget" id="lock-budget-checkbox">
-          <img
-            src="{{ url_for('static', filename='lock.png') }}"
-            alt="Lock"
-            class="lock-icon"
-            title="Click to lock the budget amount, you won't be able to make changes until next month!"
-          >
-          <span>Lock this month's budget</span>
-        </label>
-      </div>
+                <small class="form-hint" style="margin-bottom: 10px; display:block;">Click "Set" to calculate Extra funds.</small>
+                <div id="budget-error-message" class="budget-error-message" style="display: none; margin-bottom: 10px;">
+                    Total budget cannot be less than the sum of all categories.
+                </div>
 
-      <button type="submit">Save</button>
-      {% else %}
-      <p>This month's budget is locked. You can only view it.</p>
-      {% endif %}
-    </form>
+                {% if can_edit_budget %}
+                <button
+                    type="button"
+                    id="lock-total-budget-btn"
+                    class="btn-secondary"
+                    style="width: 100%; border: 1px dashed var(--color-border);"
+                >
+                    Lock Budget (Permanent)
+                </button>
+                {% endif %}
+            </div>
 
-    <button type="button" id="close-budget-modal" class="close-btn">Close</button>
-  </div>
+            <div class="lock-warning-message" id="lock-warning" style="display: none;">
+                 <strong>WARNING:</strong> Once you lock the total budget, you cannot unlock it or change the amount. You can still add categories as long as they don't exceed the total.
+            </div>
+
+            <div class="modal-buttons">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" id="close-budget-modal" class="btn-secondary">Cancel</button>
+            </div>
+        </form>
+    </div>
 </div>
 
+<<<<<<< HEAD
 <!-- 简单预算总览（非弹窗） -->
 {% if not need_budget_popup %}
 <section class="budget-diagram">
@@ -183,6 +329,8 @@
   </table>
 </section>
 {% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- 所有 JS 合并到一个 DOMContentLoaded 里 -->
 <script>
@@ -437,7 +585,122 @@ document.addEventListener("DOMContentLoaded", function () {
   // 页面一加载就把已有预算渲染出来
   renderCategoryTable();
   updateTotalIfNotEdited();
-});
+
+    // =========================
+    // Pie chart: Spending by Category (Actual)
+    // =========================
+    const categoryTotals = {{ category_totals | default({}) | tojson }};
+    const pieLabels = Object.keys(categoryTotals);
+    const pieData = Object.values(categoryTotals);
+
+    if (pieLabels.length > 0) {
+        const pieCtx = document.getElementById('expensePieChart').getContext('2d');
+
+        new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: pieLabels,
+                datasets: [{
+                    data: pieData,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Monthly Expenses by Category'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const value = ctx.raw || 0;
+                                const total = pieData.reduce((a, b) => a + b, 0);
+                                const pct = total ? (value / total * 100).toFixed(1) : 0;
+                                return `${ctx.label}: $${value.toFixed(2)} (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // =========================
+    // Bar chart: Planned vs Actual by Category
+    // =========================
+    const planned = {{ planned_category_budgets | default({}) | tojson }};
+    const actual  = {{ actual_category_totals  | default({}) | tojson }};
+
+    const allCategories = Array.from(
+        new Set([
+            ...Object.keys(planned || {}),
+            ...Object.keys(actual || {})
+        ])
+    );
+
+    if (allCategories.length > 0) {
+        const plannedData = allCategories.map(cat => (planned && planned[cat]) ? Number(planned[cat]) : 0);
+        const actualData  = allCategories.map(cat => (actual  && actual[cat])  ? Number(actual[cat])  : 0);
+
+        const barCanvas = document.getElementById('plannedActualChart');
+        if (barCanvas) {
+            const barCtx = barCanvas.getContext('2d');
+
+            new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: allCategories,
+                    datasets: [
+                        {
+                            label: 'Planned',
+                            data: plannedData,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Actual',
+                            data: actualData,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Planned vs Actual Spending'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const v = ctx.raw || 0;
+                                    return `${ctx.dataset.label}: $${v.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
 </script>
 
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}
