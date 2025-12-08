@@ -118,7 +118,7 @@ MongoDB runs as a systemd service (`mongod`) directly on the Digital Ocean dropl
 
 ## Team Members
 
-- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Frontend UX Design & Database 
+- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Backend and Frontend UX Prototype & Database 
 - **[Avi Herman – AviH7531](https://github.com/avih7531)** – System Building & Database 
 - **[Ezra Shapiro – ems9856-lgtm](https://github.com/ems9856-lgtm)** – System Building & Data Visualization 
 - **[Mya Pyke – myapyke123](https://github.com/myapyke123)** – AI and API Incorporation 
