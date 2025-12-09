@@ -992,7 +992,7 @@ document.addEventListener("DOMContentLoaded", function () {
   updateTotalIfNotEdited();
 
   // ======================================================
-  // 14. render expense pie chart
+  // 14. render expense pie chart (relative to total budget)
   // ======================================================
   const expensePieCanvas = document.getElementById('expense-pie-chart');
   
@@ -1003,23 +1003,36 @@ document.addEventListener("DOMContentLoaded", function () {
       {% endfor %}
     };
     
+    const totalBudget = {{ plan.total_budget if plan else 0 }};
     const categories = Object.keys(expenseData);
     const amounts = Object.values(expenseData);
+    const totalSpent = amounts.reduce((a, b) => a + b, 0);
+    const remainingBudget = totalBudget - totalSpent;
     
+    // Add remaining budget to the chart if there is any
+    const chartLabels = [...categories];
+    const chartData = [...amounts];
     const colors = [
       '#6366f1', '#ec4899', '#10b981', '#f59e0b',
       '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6',
       '#a855f7', '#84cc16', '#f97316', '#3b82f6'
     ];
+    const chartColors = colors.slice(0, categories.length);
+    
+    if (remainingBudget > 0) {
+      chartLabels.push('Remaining Budget');
+      chartData.push(remainingBudget);
+      chartColors.push('#e5e7eb'); // Gray color for remaining
+    }
     
     const ctx = expensePieCanvas.getContext('2d');
     new Chart(ctx, {
       type: 'pie',
       data: {
-        labels: categories,
+        labels: chartLabels,
         datasets: [{
-          data: amounts,
-          backgroundColor: colors.slice(0, categories.length),
+          data: chartData,
+          backgroundColor: chartColors,
           borderColor: '#ffffff',
           borderWidth: 3,
           hoverOffset: 15
@@ -1036,12 +1049,11 @@ document.addEventListener("DOMContentLoaded", function () {
               font: { size: 12 },
               generateLabels: function(chart) {
                 const data = chart.data;
-                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
                 return data.labels.map((label, i) => {
                   const value = data.datasets[0].data[i];
-                  const percentage = ((value / total) * 100).toFixed(1);
+                  const percentage = totalBudget > 0 ? ((value / totalBudget) * 100).toFixed(1) : 0;
                   return {
-                    text: `${label}: $${value.toFixed(2)} (${percentage}%)`,
+                    text: `${label}: $${value.toFixed(2)} (${percentage}% of budget)`,
                     fillStyle: data.datasets[0].backgroundColor[i],
                     hidden: false,
                     index: i
@@ -1056,9 +1068,8 @@ document.addEventListener("DOMContentLoaded", function () {
             callbacks: {
               label: function(context) {
                 const value = context.parsed;
-                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                const percentage = ((value / total) * 100).toFixed(1);
-                return `$${value.toFixed(2)} (${percentage}%)`;
+                const percentage = totalBudget > 0 ? ((value / totalBudget) * 100).toFixed(1) : 0;
+                return `$${value.toFixed(2)} (${percentage}% of budget)`;
               }
             }
           }
