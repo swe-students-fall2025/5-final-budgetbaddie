@@ -13,8 +13,8 @@ An AI-powered budgeting app that helps you track income, manage expenses, visual
 
 ## 👥 Team Members
 
-- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Frontend UX Design & Database 
-- **[Avi Herman – AviH7531](https://github.com/avih7531)** – System Building & Database 
+- **[Athena Luo – funfig_16](https://github.com/funfig16)** – Backend Dev & Frontend UX Design & Database 
+- **[Avi Herman – AviH7531](https://github.com/avih7531)** – Backend Dev & Frontend UI Design & System Building & Database 
 - **[Ezra Shapiro – ems9856-lgtm](https://github.com/ems9856-lgtm)** – System Building & Data Visualization 
 - **[Mya Pyke – myapyke123](https://github.com/myapyke123)** – AI and API Incorporation 
 - **[Tawhid Zaman – TawhidZGit](https://github.com/TawhidZGit)** – Front End Design & AI Incorporation
