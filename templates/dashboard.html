@@ -108,10 +108,11 @@
         <label>Category</label>
         <select id="category-select" {% if not can_edit_budget %}disabled{% endif %}>
           <option value="" disabled selected>Choose existing category</option>
-          <option value="Rent">Rent</option>
-          <option value="Groceries">Groceries</option>
-          <option value="Transport">Transport</option>
-          <option value="Entertainment">Entertainment</option>
+          {% if expense_categories %}
+            {% for cat in expense_categories %}
+             <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          {% endif %}
           <option value="New">+ New category...</option>
         </select>
 
@@ -226,13 +227,14 @@
         <!-- 下拉选已有预算里的分类 -->
         <select id="expense-category-select">
           <option value="" disabled selected>Choose category</option>
-          {% if plan and plan.category_budgets %}
-            {% for cat in plan.category_budgets.keys() %}
+          {% if expense_categories %}
+            {% for cat in expense_categories %}
               <option value="{{ cat }}">{{ cat }}</option>
             {% endfor %}
           {% endif %}
           <option value="__new__">+ New category...</option>
-        </select>
+        </select> 
+
 
         <!-- 新分类输入框 -->
         <input

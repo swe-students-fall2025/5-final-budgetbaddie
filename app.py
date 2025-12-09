@@ -374,11 +374,33 @@ def dashboard():
     can_edit_budget = not is_locked
 
     # 取出本月的简单消费记录
+        # 取出本月的简单消费记录（表格用，保持按当前月过滤）
     expenses = list(db.expenses.find({
         "user_id": user["_id"],
         "year": year,
         "month": month
     }).sort("date", -1))
+
+    # ===== 统一的分类列表：这个用户“曾经用过的所有分类” =====
+    category_set = set()
+
+    # 1) 给一点默认分类，哪怕还没有任何记录也能选
+    category_set.update(["Rent", "Groceries", "Transport", "Entertainment"])
+
+    # 2) 这个用户所有 budget_plan 里出现过的分类（不限制月份）
+    for p in db.budget_plans.find({"user_id": user["_id"]}):
+        if p.get("category_budgets"):
+            category_set.update(p["category_budgets"].keys())
+
+    # 3) 这个用户所有 expenses 里出现过的分类（不限制月份）
+    for e in db.expenses.find({"user_id": user["_id"]}):
+        cat = e.get("category")
+        if cat:
+            category_set.add(cat)
+
+    # 最终给前端用的分类下拉
+    expense_categories = sorted(category_set)
+
 
     monthly_savings, total_savings = compute_monthly_savings(user["_id"])
     
@@ -393,6 +415,7 @@ def dashboard():
         plan = plan, #add popup function?
         monthly_savings=monthly_savings,
         total_savings=total_savings,
+        expense_categories=expense_categories,
     )
 
 #budget plan routes
