@@ -5,12 +5,18 @@
   <h2 class="greeting">Hello, {{ user.email }}</h2>
 
   <div class="top-icons">
+    <!-- Savings button -->
+    <button id="open-savings-modal" class="icon-button">
+      <img src="{{ url_for('static', filename='savings.png') }}" alt="Savings" class="budget-icon">
+      <span class="tooltip">View Savings</span>
+    </button>
+
     <button id="open-budget-modal" class="icon-button">
       <img src="{{ url_for('static', filename='budget.png') }}" alt="Budget" class="budget-icon">
       <span class="tooltip">Set Budget</span>
     </button>
 
-    <!-- ========== 费用按钮 + 下方两个小按钮 ========== -->
+<!-- expense button, income button, add expense button -->
     <div class="expense-wrapper">
       <button id="open-expense-modal" class="icon-button">
         <img src="{{ url_for('static', filename='expense.png') }}" alt="Add Expense" class="budget-icon">
@@ -31,7 +37,6 @@
         </button>
       </div>
     </div>
-    <!-- ========== 费用按钮区域结束 ========== -->
 
     <button id="open-search-modal" class="icon-button">
       <img src="{{ url_for('static', filename='search.png') }}" alt="Search" class="budget-icon">
@@ -44,6 +49,43 @@
     </a>
   </div>
 </div>
+
+
+<!-- savings modal -->
+<div id="savings-modal" class="modal">
+  <div class="modal-content savings-modal-content">
+    <h3>Your Savings</h3>
+
+    {% if monthly_savings and monthly_savings|length > 0 %}
+      <ul class="savings-list">
+        {% for row in monthly_savings %}
+        <li class="savings-row">
+          <span class="savings-month">
+            {{ row.month_name }} {{ row.year }}
+          </span>
+          <span class="savings-amount">
+            $ {{ "%.2f"|format(row.savings) }}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+
+      <hr class="savings-divider">
+
+      <p class="savings-total-line">
+        <span>Total Savings:</span>
+        <span class="savings-amount">
+          $ {{ "%.2f"|format(total_savings) }}
+        </span>
+      </p>
+    {% else %}
+      <p>You don't have positive savings yet. Start tracking your income &amp; expenses!</p>
+    {% endif %}
+
+    <button type="button" id="close-savings-modal" class="close-btn">Close</button>
+  </div>
+</div>
+
 
 
 <!-- Budget modal -->
@@ -350,7 +392,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const incomeModal        = document.getElementById("income-modal");
   const closeIncomeBtn     = document.getElementById("close-income-modal");
 
-  // 这就是下面那两个小按钮所在的容器（默认 display:none）
   const choiceContainer    = document.getElementById("add-ie-choices");
   const chooseIncomeBtn    = document.getElementById("choose-income");
   const chooseExpenseBtn   = document.getElementById("choose-expense");
@@ -359,6 +400,31 @@ document.addEventListener("DOMContentLoaded", function () {
   const incomeRecurringCheckbox  = document.getElementById("income-recurring-checkbox");
   const incomeRecurringSelect    = document.getElementById("income-recurring-select");
 
+  const savingsModal       = document.getElementById("savings-modal");
+  const openSavingsBtn     = document.getElementById("open-savings-modal");
+  const closeSavingsBtn    = document.getElementById("close-savings-modal");
+  
+  // Savings
+
+  if (openSavingsBtn && savingsModal) {
+    openSavingsBtn.addEventListener("click", function () {
+      savingsModal.classList.add("show");
+    });
+  }
+
+  if (closeSavingsBtn && savingsModal) {
+    closeSavingsBtn.addEventListener("click", function () {
+      savingsModal.classList.remove("show");
+    });
+  }
+
+  if (savingsModal) {
+    savingsModal.addEventListener("click", function (event) {
+      if (event.target === savingsModal) {
+        savingsModal.classList.remove("show");
+      }
+    });
+  }
 
   // ======================================================
   // 2. 顶部大 Expense 图标：显示 / 隐藏 两个小按钮

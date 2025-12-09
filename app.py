@@ -6,10 +6,12 @@ from datetime import datetime,date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
+from collections import defaultdict
 import secrets
 import json
-from datetime import date
 
+
+# recurrence codes
 def _compute_next_date(current: date, pattern: str) -> date:
     """根据 recurrence_pattern 计算下一次日期。
     pattern: 'daily', 'weekly', 'monthly', 'yearly', 'weekday'
@@ -125,6 +127,71 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+
+#monthly savings codes
+
+def compute_monthly_savings(user_id):
+    """
+    对该用户每个月做汇总：
+      saving = max(income - expense, 0)
+    返回 (monthly_savings, total_savings)
+    monthly_savings 里每一项包含: year, month, month_name, income, expense, savings
+    """
+    uid = user_id if isinstance(user_id, ObjectId) else ObjectId(user_id)
+
+    month_income = defaultdict(float)
+    month_expense = defaultdict(float)
+
+    # ---- incomes: 按 (year, month) 汇总 ----
+    for inc in db.incomes.find({"user_id": uid}):
+        dt = inc.get("date")
+        if isinstance(dt, datetime):
+            y, m = dt.year, dt.month
+        else:
+            # 没有合法 date 就跳过
+            continue
+        month_income[(y, m)] += float(inc.get("amount") or 0)
+
+    # ---- expenses: 按 (year, month) 汇总 ----
+    for exp in db.expenses.find({"user_id": uid}):
+        dt = exp.get("date")
+        if isinstance(dt, datetime):
+            y, m = dt.year, dt.month
+        else:
+            y, m = exp.get("year"), exp.get("month")
+            if not y or not m:
+                continue
+        month_expense[(y, m)] += float(exp.get("amount") or 0)
+
+    monthly_savings = []
+    total_savings = 0.0
+
+    all_keys = sorted(set(month_income.keys()) | set(month_expense.keys()))
+    for (y, m) in all_keys:
+        inc = month_income.get((y, m), 0.0)
+        exp = month_expense.get((y, m), 0.0)
+
+        # 完全没有记录的月份直接跳过
+        if inc == 0 and exp == 0:
+            continue
+
+        saving = inc - exp
+        if saving < 0:
+            saving = 0.0   # 亏损月份当成 0 savings 显示
+
+        month_name = datetime(y, m, 1).strftime("%B")  # "September" 之类
+
+        monthly_savings.append({
+            "year": y,
+            "month": m,
+            "month_name": month_name,
+            "income": inc,
+            "expense": exp,
+            "savings": saving,
+        })
+        total_savings += saving
+
+    return monthly_savings, total_savings
 
 #Reset Password
 app.config["MAIL_SERVER"]="smtp.gmail.com"
@@ -313,6 +380,8 @@ def dashboard():
         "month": month
     }).sort("date", -1))
 
+    monthly_savings, total_savings = compute_monthly_savings(user["_id"])
+    
     return render_template(
         "dashboard.html",
         user=user,
@@ -322,6 +391,8 @@ def dashboard():
         current_year=year,
         current_month=month,
         plan = plan, #add popup function?
+        monthly_savings=monthly_savings,
+        total_savings=total_savings,
     )
 
 #budget plan routes

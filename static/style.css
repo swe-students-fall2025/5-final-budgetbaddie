@@ -181,3 +181,40 @@
   font-size: 0.9rem;
   background-color: #fff;
 }
+
+.savings-modal-content {
+  max-width: 420px;
+}
+
+.savings-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.savings-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.savings-month {
+  font-weight: 500;
+}
+
+.savings-amount {
+  min-width: 90px;
+  text-align: right;
+}
+
+.savings-total-line {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.8rem;
+  font-weight: 700;
+}
+
+.savings-divider {
+  margin-top: 0.8rem;
+  margin-bottom: 0.8rem;
+}
