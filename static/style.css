@@ -301,13 +301,6 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.expense-wrapper {
-  display: flex;
-  position: relative;
-  flex-direction: column;
-  align-items: center;
-}
-
 .icon-button {
   background: none;
   border: none;
@@ -333,33 +326,6 @@ button:disabled {
 
 .icon-button:hover .budget-icon {
   transform: scale(1.15);
-}
-
-.add-ie-choices {
-  position: absolute;
-  top: 120%;
-  left: 50%;
-  transform: translateX(-50%);
-  display: none;
-  flex-direction: row;
-  gap: 0.5rem;
-  background: var(--bg-primary);
-  padding: 0.75rem;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  z-index: 100;
-  animation: fadeInDown 0.2s ease;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 .logout-button {
