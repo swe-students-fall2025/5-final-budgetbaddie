@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_mail import Mail, Message
 from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from collections import defaultdict
 import secrets
 import json
+import google.generativeai as genai
 
 
 load_dotenv()
@@ -96,6 +97,11 @@ db = client["budgetbaddie"] """
 
 client = MongoClient("mongodb://localhost:27017")
 db = client["budgetbaddie"]
+
+# Configure Gemini AI
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 def send_reset_email(user, token):
     reset_url = url_for("reset_password", token=token, _external=True)
@@ -484,6 +490,97 @@ def delete_expense(expense_id):
         flash("Error deleting expense.")
     
     return redirect(url_for("dashboard"))
+
+@app.route("/ai/advice", methods=["POST"])
+def get_ai_advice():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    question = request.json.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "Question is required"}), 400
+    
+    # Get current month budget data
+    today = date.today()
+    year, month = today.year, today.month
+    
+    # Fetch budget plan
+    plan = db.budget_plans.find_one({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    })
+    
+    # Fetch expenses
+    expenses = list(db.expenses.find({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    }))
+    
+    # Calculate totals
+    from calendar import monthrange
+    last_day = monthrange(year, month)[1]
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+    
+    total_income = sum([
+        inc.get('amount', 0) 
+        for inc in db.incomes.find({
+            "user_id": user["_id"],
+            "date": {"$gte": start_date, "$lte": end_date}
+        })
+    ])
+    
+    # Build context for AI
+    total_budget = plan.get('total_budget', 0) if plan else 0
+    category_budgets = plan.get('category_budgets', {}) if plan else {}
+    
+    # Calculate spent per category
+    expense_by_category = {}
+    for e in expenses:
+        cat = e.get('category', 'Other')
+        expense_by_category[cat] = expense_by_category.get(cat, 0) + e.get('amount', 0)
+    
+    total_spent = sum(expense_by_category.values())
+    remaining_budget = total_budget - total_spent
+    savings = total_income - total_budget
+    
+    # Build prompt for Gemini
+    context = f"""You are a helpful financial advisor. Analyze this user's budget and provide practical advice.
+
+Current Financial Situation:
+- Monthly Income: ${total_income:.2f}
+- Total Budget: ${total_budget:.2f}
+- Total Spent This Month: ${total_spent:.2f}
+- Remaining Budget: ${remaining_budget:.2f}
+- Savings/Buffer: ${savings:.2f}
+
+Budget by Category:
+"""
+    for category, budget_amount in category_budgets.items():
+        spent = expense_by_category.get(category, 0)
+        remaining = budget_amount - spent
+        context += f"- {category}: ${budget_amount:.2f} budgeted, ${spent:.2f} spent, ${remaining:.2f} remaining\n"
+    
+    context += f"\nUser Question: {question}\n\nProvide clear, actionable advice. Be concise but helpful. If they're asking about a purchase, tell them if they can afford it and suggest which category it should come from."
+    
+    try:
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(context)
+        
+        return jsonify({
+            "advice": response.text,
+            "context": {
+                "total_income": total_income,
+                "total_budget": total_budget,
+                "total_spent": total_spent,
+                "remaining_budget": remaining_budget
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": f"AI service error: {str(e)}"}), 500
 
 
 @app.route("/logout")

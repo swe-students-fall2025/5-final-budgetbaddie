@@ -43,6 +43,11 @@
       <span class="tooltip">Search Entries</span>
     </button>
 
+    <button id="open-ai-modal" class="icon-button">
+      <span class="ai-emoji">🤖</span>
+      <span class="tooltip">Ask AI Budget Advisor</span>
+    </button>
+
     <a href="{{ url_for('logout') }}" class="logout-button">
       <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
       <span class="tooltip">Logout</span>
@@ -375,6 +380,42 @@
   </div>
 </section>
 {% endif %}
+
+<!-- AI Advice Modal -->
+<div id="ai-modal" class="modal">
+  <div class="modal-content ai-modal-content">
+    <h3>💡 AI Budget Advisor</h3>
+    
+    <div id="ai-conversation" class="ai-conversation">
+      <p class="ai-welcome">Ask me anything about your budget! For example:</p>
+      <ul class="ai-examples">
+        <li>"Can I afford a $50 dinner?"</li>
+        <li>"Should I buy a $200 jacket?"</li>
+        <li>"Do I have room in my budget for a $30 subscription?"</li>
+      </ul>
+    </div>
+    
+    <form id="ai-form">
+      <div class="field-row">
+        <textarea
+          id="ai-question"
+          name="question"
+          rows="3"
+          placeholder="Ask your budget question..."
+          required
+        ></textarea>
+      </div>
+      
+      <div class="ai-buttons">
+        <button type="submit" id="ai-submit-btn">
+          <span class="btn-text">Get Advice</span>
+          <span class="btn-loading" style="display: none;">Thinking...</span>
+        </button>
+        <button type="button" id="close-ai-modal" class="close-btn">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- ========= Add Expense modal ========= -->
 <div id="expense-modal" class="modal">
@@ -1186,6 +1227,92 @@ document.addEventListener("DOMContentLoaded", function () {
           duration: 1000,
           easing: 'easeInOutQuart'
         }
+      }
+    });
+  }
+
+  // ======================================================
+  // 16. AI Modal
+  // ======================================================
+  const aiModal = document.getElementById("ai-modal");
+  const openAiBtn = document.getElementById("open-ai-modal");
+  const closeAiBtn = document.getElementById("close-ai-modal");
+  const aiForm = document.getElementById("ai-form");
+  const aiQuestion = document.getElementById("ai-question");
+  const aiConversation = document.getElementById("ai-conversation");
+  const aiSubmitBtn = document.getElementById("ai-submit-btn");
+
+  if (openAiBtn && aiModal) {
+    openAiBtn.addEventListener("click", function () {
+      aiModal.classList.add("show");
+    });
+  }
+
+  if (closeAiBtn && aiModal) {
+    closeAiBtn.addEventListener("click", function () {
+      aiModal.classList.remove("show");
+    });
+  }
+
+  if (aiModal) {
+    aiModal.addEventListener("click", function (event) {
+      if (event.target === aiModal) {
+        aiModal.classList.remove("show");
+      }
+    });
+  }
+
+  if (aiForm) {
+    aiForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      
+      const question = aiQuestion.value.trim();
+      if (!question) return;
+      
+      // Show loading state
+      aiSubmitBtn.disabled = true;
+      aiSubmitBtn.querySelector('.btn-text').style.display = 'none';
+      aiSubmitBtn.querySelector('.btn-loading').style.display = 'inline';
+      
+      // Add user question to conversation
+      const userMsg = document.createElement('div');
+      userMsg.className = 'ai-message user-message';
+      userMsg.textContent = question;
+      aiConversation.appendChild(userMsg);
+      
+      try {
+        const response = await fetch('/ai/advice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ question })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Add AI response to conversation
+          const aiMsg = document.createElement('div');
+          aiMsg.className = 'ai-message ai-response';
+          aiMsg.textContent = data.advice;
+          aiConversation.appendChild(aiMsg);
+          
+          // Scroll to bottom
+          aiConversation.scrollTop = aiConversation.scrollHeight;
+          
+          // Clear input
+          aiQuestion.value = '';
+        } else {
+          alert('Error: ' + (data.error || 'Failed to get advice'));
+        }
+      } catch (error) {
+        alert('Error connecting to AI service: ' + error.message);
+      } finally {
+        // Reset button state
+        aiSubmitBtn.disabled = false;
+        aiSubmitBtn.querySelector('.btn-text').style.display = 'inline';
+        aiSubmitBtn.querySelector('.btn-loading').style.display = 'none';
       }
     });
   }
