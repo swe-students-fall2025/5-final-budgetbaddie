@@ -660,36 +660,6 @@ button:disabled {
   opacity: 1;
 }
 
-.income-recurring-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.checkbox-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 0.25rem 0;
-}
-
-.recurring-select {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  border: 2px solid var(--border-color);
-  font-size: 0.9rem;
-  background-color: var(--bg-primary);
-  transition: all 0.2s ease;
-}
-
-.recurring-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
 /* ============================================
    BUDGET VS EXPENSES OVERVIEW
    ============================================ */

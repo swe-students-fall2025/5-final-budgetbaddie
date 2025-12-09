@@ -325,13 +325,6 @@
         ></textarea>
       </div>
 
-      <div class="field-row">
-        <label>
-          <input type="checkbox" name="is_recurring">
-          Recurring
-        </label>
-      </div>
-
       <button type="submit">Add</button>
       <button type="button" id="close-expense-modal" class="close-btn">Close</button>
     </form>
@@ -346,7 +339,6 @@
         <th>Date</th>
         <th>Category</th>
         <th>Amount</th>
-        <th>Recurring</th>
       </tr>
     </thead>
     <tbody>
@@ -355,7 +347,6 @@
         <td>{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
         <td>{{ e.category }}</td>
         <td>{{ '%.2f'|format(e.amount) }}</td>
-        <td>{{ 'Yes' if e.is_recurring else 'No' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -392,32 +383,6 @@
       <div class="field-row">
         <label>Amount</label>
         <input type="number" step="0.01" name="amount" required>
-      </div>
-
-      <!-- Recurring + 下拉框 -->
-      <div class="field-row income-recurring-row">
-        <label class="checkbox-inline">
-          <input
-            type="checkbox"
-            id="income-recurring-checkbox"
-            name="is_recurring"
-          >
-          Recurring
-        </label>
-
-        <select
-          id="income-recurring-select"
-          name="recurrence_pattern"
-          class="recurring-select"
-          style="display:none;"
-        >
-          <option value="none">Does not repeat</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly on this date</option>
-          <option value="yearly">Annually on this date</option>
-          <option value="weekday">Every weekday (Mon–Fri)</option>
-        </select>
       </div>
 
       <!-- 备注 -->
@@ -460,9 +425,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const chooseIncomeBtn    = document.getElementById("choose-income");
   const chooseExpenseBtn   = document.getElementById("choose-expense");
 
-  const incomeForm               = document.getElementById("income-form");
-  const incomeRecurringCheckbox  = document.getElementById("income-recurring-checkbox");
-  const incomeRecurringSelect    = document.getElementById("income-recurring-select");
+  const incomeForm         = document.getElementById("income-form");
 
   const savingsModal       = document.getElementById("savings-modal");
   const openSavingsBtn     = document.getElementById("open-savings-modal");
@@ -511,31 +474,6 @@ document.addEventListener("DOMContentLoaded", function () {
   //    - 左边 income.png  -> 打开 income modal
   //    - 右边 add_expense.png -> 打开 expense modal
   // ======================================================
-  // ======================================================
-  // X. Income 表单：Recurring 复选框控制下拉框显示
-  // ======================================================
-  if (incomeRecurringCheckbox && incomeRecurringSelect) {
-    incomeRecurringCheckbox.addEventListener("change", function () {
-      if (this.checked) {
-        incomeRecurringSelect.style.display = "inline-block";
-        // 默认选中 "Does not repeat"，用户可以改
-        if (!incomeRecurringSelect.value) {
-          incomeRecurringSelect.value = "none";
-        }
-      } else {
-        incomeRecurringSelect.style.display = "none";
-        incomeRecurringSelect.value = "none";
-      }
-    });
-  }
-
-  // 如果以后想对 income 提交做额外校验，也可以在这里：
-  // if (incomeForm) {
-  //   incomeForm.addEventListener("submit", function (e) {
-  //     // 自定义校验逻辑...
-  //   });
-  // }
-
   // 点击 income 小按钮 -> 打开 income 弹窗
   if (chooseIncomeBtn && incomeModal) {
     chooseIncomeBtn.addEventListener("click", function () {
