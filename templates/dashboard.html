@@ -199,13 +199,35 @@
   </div>
 </div>
 
-<!-- 简单预算总览（非弹窗） -->
+<!-- Budget Overview with Pie Chart -->
 {% if not need_budget_popup %}
 <section class="budget-diagram">
-  <h3>Your this month's budget</h3>
-  <div id="budget-chart">
-    <p>$ {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
+  <h3>Your Budget for {{ current_month }}/{{ current_year }}</h3>
+  
+  <div class="budget-total">
+    <span class="budget-total-label">Total Budget:</span>
+    <span class="budget-total-amount">$ {{ '%.2f'|format(plan.total_budget) if plan else '0.00' }}</span>
   </div>
+  
+  {% if plan and plan.category_budgets and plan.category_budgets|length > 0 %}
+  <div class="chart-container">
+    <canvas id="budget-pie-chart"></canvas>
+  </div>
+  
+  <div class="chart-legend">
+    {% for category, amount in plan.category_budgets.items() %}
+    <div class="legend-item">
+      <span class="legend-category">{{ category }}</span>
+      <span class="legend-amount">$ {{ '%.2f'|format(amount) }}</span>
+      <span class="legend-percentage">
+        {{ '%.1f'|format((amount / plan.total_budget * 100) if plan.total_budget > 0 else 0) }}%
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="no-data-message">No category budgets set yet. Add categories to see the breakdown!</p>
+  {% endif %}
 </section>
 {% endif %}
 
@@ -877,6 +899,92 @@ document.addEventListener("DOMContentLoaded", function () {
   // ======================================================
   renderCategoryTable();
   updateTotalIfNotEdited();
+
+  // ======================================================
+  // 14. Render Budget Pie Chart
+  // ======================================================
+  const budgetPieCanvas = document.getElementById('budget-pie-chart');
+  
+  if (budgetPieCanvas) {
+    // Get category data from the template
+    {% if plan and plan.category_budgets %}
+    const categoryData = {
+      {% for category, amount in plan.category_budgets.items() %}
+      "{{ category }}": {{ amount }},
+      {% endfor %}
+    };
+    
+    const categories = Object.keys(categoryData);
+    const amounts = Object.values(categoryData);
+    
+    // Generate beautiful colors for each category
+    const colors = [
+      '#6366f1', // Indigo
+      '#ec4899', // Pink
+      '#10b981', // Green
+      '#f59e0b', // Amber
+      '#8b5cf6', // Purple
+      '#06b6d4', // Cyan
+      '#f43f5e', // Rose
+      '#14b8a6', // Teal
+      '#a855f7', // Violet
+      '#84cc16', // Lime
+      '#f97316', // Orange
+      '#3b82f6', // Blue
+    ];
+    
+    // Create the pie chart
+    const ctx = budgetPieCanvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: categories,
+        datasets: [{
+          data: amounts,
+          backgroundColor: colors.slice(0, categories.length),
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false // We have a custom legend below
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            },
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 1000,
+          easing: 'easeInOutQuart'
+        }
+      }
+    });
+    {% endif %}
+  }
 
 });
 </script>
