@@ -16,27 +16,15 @@
       <span class="tooltip">Set Budget</span>
     </button>
 
-<!-- expense button, income button, add expense button -->
-    <div class="expense-wrapper">
-      <button id="open-expense-modal" class="icon-button">
-        <img src="{{ url_for('static', filename='expense.png') }}" alt="Add Expense" class="budget-icon">
-        <span class="tooltip">Add Income/Expenses</span>
-      </button>
+    <button id="open-income-modal" class="icon-button">
+      <img src="{{ url_for('static', filename='income.png') }}" alt="Add Income" class="budget-icon">
+      <span class="tooltip">Add Income</span>
+    </button>
 
-      <div id="add-ie-choices" class="add-ie-choices" style="display: none;">
-        <button id="choose-income" class="icon-button">
-          <img src="{{ url_for('static', filename='income.png') }}" 
-               alt="Add Income" class="budget-icon">
-          <span class="tooltip">Add Income</span>
-        </button>
-
-        <button id="choose-expense" class="icon-button">
-          <img src="{{ url_for('static', filename='add_expense.png') }}" 
-               alt="Add Expense" class="budget-icon">
-          <span class="tooltip">Add Expense</span>
-        </button>
-      </div>
-    </div>
+    <button id="open-expense-modal" class="icon-button">
+      <img src="{{ url_for('static', filename='add_expense.png') }}" alt="Add Expense" class="budget-icon">
+      <span class="tooltip">Add Expense</span>
+    </button>
 
     <button id="open-ai-modal" class="icon-button">
       <span class="ai-emoji">🤖</span>
@@ -631,11 +619,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const closeExpenseBtn    = document.getElementById("close-expense-modal");
 
   const incomeModal        = document.getElementById("income-modal");
+  const openIncomeBtn      = document.getElementById("open-income-modal");
   const closeIncomeBtn     = document.getElementById("close-income-modal");
-
-  const choiceContainer    = document.getElementById("add-ie-choices");
-  const chooseIncomeBtn    = document.getElementById("choose-income");
-  const chooseExpenseBtn   = document.getElementById("choose-expense");
 
   const incomeForm         = document.getElementById("income-form");
 
@@ -666,51 +651,22 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ======================================================
-  // 2. 顶部大 Expense 图标：显示 / 隐藏 两个小按钮
-  //    点击大 expense.png -> 展示/收起 income & add_expense
+  // 2. Open Income Modal
   // ======================================================
-  if (openExpenseBtn && choiceContainer) {
-    openExpenseBtn.addEventListener("click", function () {
-      const currentDisplay = choiceContainer.style.display;
-
-      // 默认是 "", 或者 "none" 视为隐藏
-      const isHidden = (currentDisplay === "" || currentDisplay === "none");
-      choiceContainer.style.display = isHidden ? "flex" : "none";
-    });
-  }
-
-
-
-  // ======================================================
-  // 3. 小按钮逻辑：
-  //    - 左边 income.png  -> 打开 income modal
-  //    - 右边 add_expense.png -> 打开 expense modal
-  // ======================================================
-  // 点击 income 小按钮 -> 打开 income 弹窗
-  if (chooseIncomeBtn && incomeModal) {
-    chooseIncomeBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
+  if (openIncomeBtn && incomeModal) {
+    openIncomeBtn.addEventListener("click", function () {
       incomeModal.classList.add("show");
-      if (choiceContainer) {
-        choiceContainer.style.display = "none";
-      }
-    });
-  } else {
-    console.log("Income button or modal not found:", {
-      btn: chooseIncomeBtn,
-      modal: incomeModal
     });
   }
 
-  // 关闭 income 弹窗
+  // Close income modal
   if (closeIncomeBtn && incomeModal) {
     closeIncomeBtn.addEventListener("click", function () {
       incomeModal.classList.remove("show");
     });
   }
 
-  // 点击 income 弹窗外部区域 -> 关闭
+  // Click outside income modal to close
   if (incomeModal) {
     incomeModal.addEventListener("click", function (event) {
       if (event.target === incomeModal) {
@@ -719,13 +675,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // 点击 expense 小按钮 -> 打开已有的 Add Expense 弹窗
-  if (chooseExpenseBtn && expenseModal) {
-    chooseExpenseBtn.addEventListener("click", function () {
+  // ======================================================
+  // 3. Open Expense Modal
+  // ======================================================
+  if (openExpenseBtn && expenseModal) {
+    openExpenseBtn.addEventListener("click", function () {
       expenseModal.classList.add("show");
-      if (choiceContainer) {
-        choiceContainer.style.display = "none";
-      }
     });
   }
 
