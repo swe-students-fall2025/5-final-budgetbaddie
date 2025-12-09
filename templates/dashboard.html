@@ -688,11 +688,18 @@ document.addEventListener("DOMContentLoaded", function () {
   // ======================================================
   // 点击 income 小按钮 -> 打开 income 弹窗
   if (chooseIncomeBtn && incomeModal) {
-    chooseIncomeBtn.addEventListener("click", function () {
+    chooseIncomeBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       incomeModal.classList.add("show");
       if (choiceContainer) {
         choiceContainer.style.display = "none";
       }
+    });
+  } else {
+    console.log("Income button or modal not found:", {
+      btn: chooseIncomeBtn,
+      modal: incomeModal
     });
   }
 
