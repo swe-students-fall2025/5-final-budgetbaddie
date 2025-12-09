@@ -63,7 +63,19 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
             docker stop budget-web || true
             docker rm budget-web || true
-            docker run -d --name budget-web -p 5000:5000 --env MONGO_URI=${{ secrets.MONGO_URI }} --env SECRET_KEY=${{ secrets.SECRET_KEY }} --env MAIL_USERNAME=${{ secrets.MAIL_USERNAME }} --env MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }} --env MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
-            sleep 3
+            docker run -d \
+              --name budget-web \
+              -p 5000:5000 \
+              --add-host=host.docker.internal:host-gateway \
+              --restart unless-stopped \
+              -e MONGO_URI="mongodb://host.docker.internal:27017/budgetbaddie" \
+              -e SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+              -e GEMINI_API_KEY="${{ secrets.GOOGLE_AI_API_KEY }}" \
+              -e MAIL_USERNAME="${{ secrets.MAIL_USERNAME }}" \
+              -e MAIL_PASSWORD="${{ secrets.MAIL_PASSWORD }}" \
+              -e MAIL_DEFAULT_SENDER="${{ secrets.MAIL_DEFAULT_SENDER }}" \
+              ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-web:latest
+            sleep 5
             docker ps -a | grep budget-web
-            docker logs budget-web || echo "Container not running or no logs available"
+            docker logs --tail 50 budget-web
+            curl -f http://localhost:5000/ || echo "Warning: Health check failed"

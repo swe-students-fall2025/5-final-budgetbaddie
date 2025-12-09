@@ -68,5 +68,16 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
             docker stop budget-api || true
             docker rm budget-api || true
-            docker run -d --name budget-api -p 8000:8000 --env MONGO_URI=${{ secrets.MONGO_URI }} ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+            docker run -d \
+              --name budget-api \
+              -p 8000:8000 \
+              --add-host=host.docker.internal:host-gateway \
+              --restart unless-stopped \
+              -e MONGO_URI="mongodb://host.docker.internal:27017/budgetbaddie" \
+              -e GOOGLE_AI_API_KEY="${{ secrets.GOOGLE_AI_API_KEY }}" \
+              ${{ secrets.DOCKER_USERNAME }}/budgetbaddie-api:latest
+            sleep 5
+            docker ps -a | grep budget-api
+            docker logs --tail 50 budget-api
+            curl -f http://localhost:8000/health || echo "Warning: Health check failed"
 

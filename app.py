@@ -91,11 +91,10 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER") or app.config["MAIL_USERNAME"]
 
 mail = Mail(app)
-""" client = MongoClient("mongodb://localhost:mongo:27017/budgetbaddie")
-client = MongoClient(MONGO_URI)
-db = client["budgetbaddie"] """
 
-client = MongoClient("mongodb://localhost:27017")
+# MongoDB connection - use MONGO_URI from environment or fallback to localhost
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+client = MongoClient(MONGO_URI)
 db = client["budgetbaddie"]
 
 # Configure Gemini AI
