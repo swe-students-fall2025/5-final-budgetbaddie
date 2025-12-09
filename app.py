@@ -266,6 +266,20 @@ def dashboard():
         "month": month
     }).sort("date", -1))
 
+    # calculate total monthly income
+    from calendar import monthrange
+    last_day = monthrange(year, month)[1]
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+    
+    total_income = sum([
+        inc.get('amount', 0) 
+        for inc in db.incomes.find({
+            "user_id": user["_id"],
+            "date": {"$gte": start_date, "$lte": end_date}
+        })
+    ])
+
     monthly_savings, total_savings = compute_monthly_savings(user["_id"])
     
     return render_template(
@@ -279,6 +293,7 @@ def dashboard():
         plan = plan, #add popup function?
         monthly_savings=monthly_savings,
         total_savings=total_savings,
+        total_income=total_income,
     )
 
 #budget plan routes

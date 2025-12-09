@@ -273,6 +273,109 @@
 </section>
 {% endif %}
 
+<!-- category budget analysis -->
+{% if not need_budget_popup and plan and plan.category_budgets %}
+<section class="category-analysis">
+  <h2>Budget vs Spending by Category</h2>
+  
+  <div class="category-grid">
+    {% for category, budget_amount in plan.category_budgets.items() %}
+    {% set spent_amount = expense_by_category.get(category, 0) %}
+    {% set percentage = (spent_amount / budget_amount * 100) if budget_amount > 0 else 0 %}
+    {% if percentage <= 90 %}
+      {% set status_class = "status-under" %}
+      {% set status_text = "Under Budget" %}
+    {% elif percentage <= 100 %}
+      {% set status_class = "status-close" %}
+      {% set status_text = "Close to Budget" %}
+    {% else %}
+      {% set status_class = "status-over" %}
+      {% set status_text = "Over Budget!" %}
+    {% endif %}
+    
+    <div class="category-card {{ status_class }}">
+      <h3 class="category-title">{{ category }}</h3>
+      <div class="category-amounts">
+        <div class="amount-row">
+          <span class="amount-label">Budget:</span>
+          <span class="amount-value">${{ '%.2f'|format(budget_amount) }}</span>
+        </div>
+        <div class="amount-row">
+          <span class="amount-label">Spent:</span>
+          <span class="amount-value">${{ '%.2f'|format(spent_amount) }}</span>
+        </div>
+      </div>
+      
+      <div class="progress-bar-container">
+        <div class="progress-bar {{ status_class }}" style="width: {{ [percentage, 100]|min }}%"></div>
+      </div>
+      
+      <div class="category-status">
+        <span class="status-percentage">{{ '%.1f'|format(percentage) }}%</span>
+        <span class="status-label">{{ status_text }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- income capacity tracker -->
+{% if not need_budget_popup %}
+<section class="income-tracker">
+  <h2>Income Capacity Tracker</h2>
+  
+  {% set total_budget = plan.total_budget if plan else 0 %}
+  {% set total_spent = expense_by_category.values()|sum %}
+  {% set remaining_budget = total_budget - total_spent %}
+  {% set savings = total_income - total_budget %}
+  
+  <div class="tracker-container">
+    <canvas id="income-capacity-chart"></canvas>
+  </div>
+  
+  <div class="tracker-summary">
+    <div class="summary-card">
+      <div class="summary-label">Total Income</div>
+      <div class="summary-amount income-amount">${{ '%.2f'|format(total_income) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Total Budgeted</div>
+      <div class="summary-amount budget-amount">${{ '%.2f'|format(total_budget) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Total Spent</div>
+      <div class="summary-amount spent-amount">${{ '%.2f'|format(total_spent) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Remaining Budget</div>
+      <div class="summary-amount remaining-amount">${{ '%.2f'|format(remaining_budget) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Savings/Buffer</div>
+      <div class="summary-amount savings-amount">${{ '%.2f'|format(savings) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Status</div>
+      <div class="summary-status">
+        {% if savings < 0 %}
+          <span class="status-warning">⚠️ Over Budget!</span>
+        {% elif savings < total_budget * 0.1 %}
+          <span class="status-close">⚡ Tight Budget</span>
+        {% else %}
+          <span class="status-good">✓ Healthy</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 <!-- ========= Add Expense modal ========= -->
 <div id="expense-modal" class="modal">
   <div class="modal-content">
@@ -964,6 +1067,113 @@ document.addEventListener("DOMContentLoaded", function () {
           animateRotate: true,
           animateScale: true,
           duration: 1000
+        }
+      }
+    });
+  }
+
+  // ======================================================
+  // 15. render income capacity tracker chart
+  // ======================================================
+  const incomeCapacityCanvas = document.getElementById('income-capacity-chart');
+  
+  if (incomeCapacityCanvas) {
+    {% set total_budget = plan.total_budget if plan else 0 %}
+    {% set total_spent = expense_by_category.values()|sum %}
+    {% set remaining_budget = total_budget - total_spent %}
+    {% set savings = total_income - total_budget %}
+    
+    const totalIncome = {{ total_income }};
+    const totalBudget = {{ total_budget }};
+    const totalSpent = {{ total_spent }};
+    const remainingBudget = {{ remaining_budget if remaining_budget > 0 else 0 }};
+    const savings = {{ savings }};
+    
+    const ctx = incomeCapacityCanvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Financial Overview'],
+        datasets: [
+          {
+            label: 'Actual Expenses',
+            data: [totalSpent],
+            backgroundColor: '#ec4899',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          },
+          {
+            label: 'Remaining Budget',
+            data: [remainingBudget],
+            backgroundColor: '#6366f1',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          },
+          {
+            label: 'Savings/Buffer',
+            data: [savings > 0 ? savings : 0],
+            backgroundColor: savings > 0 ? '#10b981' : '#ef4444',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            max: totalIncome > 0 ? totalIncome * 1.1 : 100,
+            title: {
+              display: true,
+              text: 'Amount ($)',
+              font: { size: 14, weight: 'bold' }
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.1)'
+            }
+          },
+          y: {
+            stacked: true,
+            display: false
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              padding: 15,
+              font: { size: 12 },
+              usePointStyle: true
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 13 },
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label || '';
+                const value = context.parsed.x || 0;
+                const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : 0;
+                return `${label}: $${value.toFixed(2)} (${percentage}% of income)`;
+              },
+              afterBody: function(context) {
+                if (context.length > 0) {
+                  return `\nTotal Income: $${totalIncome.toFixed(2)}`;
+                }
+              }
+            }
+          }
+        },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart'
         }
       }
     });

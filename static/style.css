@@ -921,6 +921,248 @@ tbody td .icon-button {
 }
 
 /* ============================================
+   CATEGORY BUDGET ANALYSIS
+   ============================================ */
+.category-analysis {
+  background: var(--bg-primary);
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 2rem;
+}
+
+.category-analysis h2 {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.category-card {
+  background: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.category-card.status-under {
+  border-left: 4px solid var(--success-color);
+}
+
+.category-card.status-close {
+  border-left: 4px solid var(--warning-color);
+}
+
+.category-card.status-over {
+  border-left: 4px solid var(--danger-color);
+}
+
+.category-title {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.category-amounts {
+  margin-bottom: 1rem;
+}
+
+.amount-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.amount-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.amount-value {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.progress-bar-container {
+  height: 12px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: var(--radius-sm);
+}
+
+.progress-bar.status-under {
+  background: linear-gradient(90deg, var(--success-color), #059669);
+}
+
+.progress-bar.status-close {
+  background: linear-gradient(90deg, var(--warning-color), #d97706);
+}
+
+.progress-bar.status-over {
+  background: linear-gradient(90deg, var(--danger-color), #dc2626);
+}
+
+.category-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.status-percentage {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.status-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.status-under .status-label {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.status-close .status-label {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-color);
+}
+
+.status-over .status-label {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+}
+
+/* ============================================
+   INCOME CAPACITY TRACKER
+   ============================================ */
+.income-tracker {
+  background: var(--bg-primary);
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 2rem;
+}
+
+.income-tracker h2 {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+}
+
+.tracker-container {
+  max-width: 600px;
+  height: 150px;
+  margin: 2rem auto;
+}
+
+.tracker-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.summary-card {
+  background: var(--bg-secondary);
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.summary-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0;
+}
+
+.income-amount {
+  color: var(--primary-color);
+}
+
+.budget-amount {
+  color: #6366f1;
+}
+
+.spent-amount {
+  color: var(--secondary-color);
+}
+
+.remaining-amount {
+  color: #8b5cf6;
+}
+
+.savings-amount {
+  color: var(--success-color);
+}
+
+.summary-status {
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.status-good {
+  color: var(--success-color);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.status-close {
+  color: var(--warning-color);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.status-warning {
+  color: var(--danger-color);
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================
    RESPONSIVE DESIGN
    ============================================ */
 @media (max-width: 768px) {
@@ -965,6 +1207,18 @@ tbody td .icon-button {
     font-size: 1.5rem;
   }
 
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tracker-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tracker-container {
+    height: 120px;
+  }
+
   h2 {
     font-size: 1.5rem;
   }
@@ -994,8 +1248,30 @@ tbody td .icon-button {
 
   .expense-list,
   .income-list,
-  .budget-diagram {
+  .budget-expenses-overview,
+  .category-analysis,
+  .income-tracker {
     padding: 1rem;
+  }
+
+  .category-card {
+    padding: 1rem;
+  }
+
+  .tracker-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .tracker-container {
+    height: 100px;
+  }
+
+  .summary-amount {
+    font-size: 1.25rem;
+  }
+
+  .category-title {
+    font-size: 1.125rem;
   }
 
   /* Make tables scrollable on very small screens */
