@@ -38,11 +38,6 @@
       </div>
     </div>
 
-    <button id="open-search-modal" class="icon-button">
-      <img src="{{ url_for('static', filename='search.png') }}" alt="Search" class="budget-icon">
-      <span class="tooltip">Search Entries</span>
-    </button>
-
     <button id="open-ai-modal" class="icon-button">
       <span class="ai-emoji">🤖</span>
       <span class="tooltip">Ask AI Budget Advisor</span>
@@ -476,22 +471,31 @@
 </div>
 
 <section class="expense-list">
-  <h3>Your this month's expenses</h3>
+  <div class="section-header">
+    <h3>Your this month's expenses</h3>
+    <button id="open-search-modal" class="btn-primary">
+      <img src="{{ url_for('static', filename='search.png') }}" alt="Search" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 8px;">
+      Search Entries
+    </button>
+  </div>
+  
   <table>
     <thead>
       <tr>
         <th>Date</th>
         <th>Category</th>
         <th>Amount</th>
+        <th>Note</th>
         <th>Actions</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="expenses-table-body">
       {% for e in expenses %}
       <tr>
         <td>{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
         <td>{{ e.category }}</td>
-        <td>{{ '%.2f'|format(e.amount) }}</td>
+        <td>${{ '%.2f'|format(e.amount) }}</td>
+        <td class="note-cell">{{ e.note if e.note else '-' }}</td>
         <td>
           <form method="POST" action="{{ url_for('delete_expense', expense_id=e._id) }}" style="display: inline;" onsubmit="return confirm('Delete this expense?');">
             <button type="submit" class="icon-button delete-btn">
@@ -503,6 +507,46 @@
       {% endfor %}
     </tbody>
   </table>
+</section>
+
+<!-- Search Modal -->
+<div id="search-modal" class="modal">
+  <div class="modal-content">
+    <h3>Search Expenses</h3>
+    
+    <div class="field-row">
+      <label>Search by Category, Amount, or Note</label>
+      <input type="text" id="search-input" placeholder="Type to search...">
+    </div>
+    
+    <div class="field-row">
+      <label>Date Range</label>
+      <div style="display: flex; gap: 1rem;">
+        <input type="date" id="search-date-from" placeholder="From">
+        <input type="date" id="search-date-to" placeholder="To">
+      </div>
+    </div>
+    
+    <div class="field-row">
+      <label>Filter by Category</label>
+      <select id="search-category">
+        <option value="">All Categories</option>
+        {% if plan and plan.category_budgets %}
+          {% for cat in plan.category_budgets.keys() %}
+            <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+    
+    <button type="button" id="search-btn" class="btn-primary">Search</button>
+    <button type="button" id="clear-search-btn">Clear Filters</button>
+    <button type="button" id="close-search-modal" class="close-btn">Close</button>
+    
+    <div id="search-results" style="margin-top: 1.5rem;">
+      <!-- Results will appear here -->
+    </div>
+  </div>
 </section>
 
 
@@ -1313,6 +1357,147 @@ document.addEventListener("DOMContentLoaded", function () {
         aiSubmitBtn.disabled = false;
         aiSubmitBtn.querySelector('.btn-text').style.display = 'inline';
         aiSubmitBtn.querySelector('.btn-loading').style.display = 'none';
+      }
+    });
+  }
+
+  // ======================================================
+  // 17. Search Modal
+  // ======================================================
+  const searchModal = document.getElementById("search-modal");
+  const openSearchBtn = document.getElementById("open-search-modal");
+  const closeSearchBtn = document.getElementById("close-search-modal");
+  const searchBtn = document.getElementById("search-btn");
+  const clearSearchBtn = document.getElementById("clear-search-btn");
+  const searchInput = document.getElementById("search-input");
+  const searchDateFrom = document.getElementById("search-date-from");
+  const searchDateTo = document.getElementById("search-date-to");
+  const searchCategory = document.getElementById("search-category");
+  const expensesTableBody = document.getElementById("expenses-table-body");
+
+  // Store all expenses for filtering
+  const allExpenses = [
+    {% for e in expenses %}
+    {
+      date: "{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}",
+      category: "{{ e.category }}",
+      amount: {{ e.amount }},
+      note: "{{ e.note if e.note else '' }}",
+      id: "{{ e._id }}"
+    },
+    {% endfor %}
+  ];
+
+  if (openSearchBtn && searchModal) {
+    openSearchBtn.addEventListener("click", function () {
+      searchModal.classList.add("show");
+    });
+  }
+
+  if (closeSearchBtn && searchModal) {
+    closeSearchBtn.addEventListener("click", function () {
+      searchModal.classList.remove("show");
+    });
+  }
+
+  if (searchModal) {
+    searchModal.addEventListener("click", function (event) {
+      if (event.target === searchModal) {
+        searchModal.classList.remove("show");
+      }
+    });
+  }
+
+  // Search function
+  function performSearch() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const dateFrom = searchDateFrom.value;
+    const dateTo = searchDateTo.value;
+    const categoryFilter = searchCategory.value;
+
+    const filtered = allExpenses.filter(expense => {
+      // Text search (category, amount, or note)
+      const matchesText = !searchTerm || 
+        expense.category.toLowerCase().includes(searchTerm) ||
+        expense.amount.toString().includes(searchTerm) ||
+        expense.note.toLowerCase().includes(searchTerm);
+
+      // Date range filter
+      const matchesDateFrom = !dateFrom || expense.date >= dateFrom;
+      const matchesDateTo = !dateTo || expense.date <= dateTo;
+
+      // Category filter
+      const matchesCategory = !categoryFilter || expense.category === categoryFilter;
+
+      return matchesText && matchesDateFrom && matchesDateTo && matchesCategory;
+    });
+
+    // Update table with filtered results
+    expensesTableBody.innerHTML = '';
+    filtered.forEach(expense => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${expense.date}</td>
+        <td>${expense.category}</td>
+        <td>$${expense.amount.toFixed(2)}</td>
+        <td class="note-cell">${expense.note || '-'}</td>
+        <td>
+          <form method="POST" action="/expenses/delete/${expense.id}" style="display: inline;" onsubmit="return confirm('Delete this expense?');">
+            <button type="submit" class="icon-button delete-btn">
+              <img src="{{ url_for('static', filename='delete.png') }}" alt="Delete">
+            </button>
+          </form>
+        </td>
+      `;
+      expensesTableBody.appendChild(row);
+    });
+
+    // Show count in modal
+    const resultsDiv = document.getElementById('search-results');
+    resultsDiv.innerHTML = `<p style="color: var(--text-secondary); font-style: italic;">Found ${filtered.length} expense(s)</p>`;
+  }
+
+  if (searchBtn) {
+    searchBtn.addEventListener("click", performSearch);
+  }
+
+  // Clear filters
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener("click", function () {
+      searchInput.value = '';
+      searchDateFrom.value = '';
+      searchDateTo.value = '';
+      searchCategory.value = '';
+      
+      // Reset table to show all expenses
+      expensesTableBody.innerHTML = '';
+      allExpenses.forEach(expense => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${expense.date}</td>
+          <td>${expense.category}</td>
+          <td>$${expense.amount.toFixed(2)}</td>
+          <td class="note-cell">${expense.note || '-'}</td>
+          <td>
+            <form method="POST" action="/expenses/delete/${expense.id}" style="display: inline;" onsubmit="return confirm('Delete this expense?');">
+              <button type="submit" class="icon-button delete-btn">
+                <img src="{{ url_for('static', filename='delete.png') }}" alt="Delete">
+              </button>
+            </form>
+          </td>
+        `;
+        expensesTableBody.appendChild(row);
+      });
+      
+      document.getElementById('search-results').innerHTML = '';
+    });
+  }
+
+  // Real-time search on input
+  if (searchInput) {
+    searchInput.addEventListener("input", function () {
+      if (searchInput.value.length > 0) {
+        performSearch();
       }
     });
   }
