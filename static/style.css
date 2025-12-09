@@ -691,32 +691,120 @@ button:disabled {
 }
 
 /* ============================================
-   BUDGET DIAGRAM SECTION
+   BUDGET VS EXPENSES OVERVIEW
    ============================================ */
-.budget-diagram {
+.budget-expenses-overview {
   background: var(--bg-primary);
   padding: 2rem;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   margin-bottom: 2rem;
+}
+
+.budget-expenses-overview h2 {
+  text-align: center;
+  color: var(--primary-color);
+  margin-bottom: 2rem;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.budget-section,
+.expenses-section,
+.chart-section {
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.budget-section h3,
+.expenses-section h3,
+.chart-section h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.budget-total-box,
+.expenses-total-box {
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
   text-align: center;
 }
 
-.budget-diagram h3 {
-  margin-bottom: 1.5rem;
+.budget-total-box {
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  color: white;
+}
+
+.expenses-total-box {
+  background: linear-gradient(135deg, var(--secondary-color), #db2777);
+  color: white;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.budget-item {
+  background: var(--bg-primary);
+  border-left: 4px solid var(--primary-color);
+}
+
+.expense-item {
+  background: var(--bg-primary);
+  border-left: 4px solid var(--secondary-color);
+}
+
+.category-item:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow-sm);
+}
+
+.category-name {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.category-amount {
+  font-weight: 700;
   color: var(--primary-color);
 }
 
-#budget-chart {
-  display: inline-block;
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
-  padding: 2rem 3rem;
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  font-size: 2.5rem;
-  font-weight: 700;
-  min-width: 200px;
+.expense-item .category-amount {
+  color: var(--secondary-color);
+}
+
+.chart-container {
+  max-width: 350px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 2rem 1rem;
 }
 
 /* ============================================
@@ -899,9 +987,12 @@ tbody td .icon-button {
     padding: 0.75rem 0.5rem;
   }
 
-  #budget-chart {
-    font-size: 2rem;
-    padding: 1.5rem 2rem;
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-expenses-overview h2 {
+    font-size: 1.5rem;
   }
 
   h2 {

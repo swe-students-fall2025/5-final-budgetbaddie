@@ -199,12 +199,76 @@
   </div>
 </div>
 
-<!-- 简单预算总览（非弹窗） -->
+<!-- budget vs expenses overview -->
 {% if not need_budget_popup %}
-<section class="budget-diagram">
-  <h3>Your this month's budget</h3>
-  <div id="budget-chart">
-    <p>$ {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
+<section class="budget-expenses-overview">
+  <h2>Budget vs Expenses for {{ current_month }}/{{ current_year }}</h2>
+  
+  <div class="overview-grid">
+    <!-- budget categories -->
+    <div class="budget-section">
+      <h3>Budget Plan</h3>
+      <div class="budget-total-box">
+        Total Budget: ${{ '%.2f'|format(plan.total_budget) if plan else '0.00' }}
+      </div>
+      
+      {% if plan and plan.category_budgets %}
+      <div class="category-list">
+        {% for category, amount in plan.category_budgets.items() %}
+        <div class="category-item budget-item">
+          <span class="category-name">{{ category }}</span>
+          <span class="category-amount">${{ '%.2f'|format(amount) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-data">No budget categories set</p>
+      {% endif %}
+    </div>
+    
+    <!-- actual expenses -->
+    <div class="expenses-section">
+      <h3>Actual Expenses</h3>
+      
+      {% set expense_by_category = {} %}
+      {% for e in expenses %}
+        {% if e.category in expense_by_category %}
+          {% set _ = expense_by_category.update({e.category: expense_by_category[e.category] + e.amount}) %}
+        {% else %}
+          {% set _ = expense_by_category.update({e.category: e.amount}) %}
+        {% endif %}
+      {% endfor %}
+      
+      {% set total_expenses = expense_by_category.values()|sum %}
+      <div class="expenses-total-box">
+        Total Spent: ${{ '%.2f'|format(total_expenses) }}
+      </div>
+      
+      {% if expense_by_category %}
+      <div class="category-list">
+        {% for category, amount in expense_by_category.items() %}
+        <div class="category-item expense-item">
+          <span class="category-name">{{ category }}</span>
+          <span class="category-amount">${{ '%.2f'|format(amount) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-data">No expenses yet</p>
+      {% endif %}
+    </div>
+    
+    <!-- expense breakdown chart -->
+    <div class="chart-section">
+      <h3>Expense Breakdown</h3>
+      {% if expense_by_category %}
+      <div class="chart-container">
+        <canvas id="expense-pie-chart"></canvas>
+      </div>
+      {% else %}
+      <p class="no-data">Add expenses to see the chart</p>
+      {% endif %}
+    </div>
   </div>
 </section>
 {% endif %}
@@ -877,6 +941,87 @@ document.addEventListener("DOMContentLoaded", function () {
   // ======================================================
   renderCategoryTable();
   updateTotalIfNotEdited();
+
+  // ======================================================
+  // 14. render expense pie chart
+  // ======================================================
+  const expensePieCanvas = document.getElementById('expense-pie-chart');
+  
+  if (expensePieCanvas) {
+    const expenseData = {
+      {% for category, amount in expense_by_category.items() %}
+      "{{ category }}": {{ amount }},
+      {% endfor %}
+    };
+    
+    const categories = Object.keys(expenseData);
+    const amounts = Object.values(expenseData);
+    
+    const colors = [
+      '#6366f1', '#ec4899', '#10b981', '#f59e0b',
+      '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6',
+      '#a855f7', '#84cc16', '#f97316', '#3b82f6'
+    ];
+    
+    const ctx = expensePieCanvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: categories,
+        datasets: [{
+          data: amounts,
+          backgroundColor: colors.slice(0, categories.length),
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 15,
+              font: { size: 12 },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const percentage = ((value / total) * 100).toFixed(1);
+                  return {
+                    text: `${label}: $${value.toFixed(2)} (${percentage}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const value = context.parsed;
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `$${value.toFixed(2)} (${percentage}%)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 1000
+        }
+      }
+    });
+  }
 
 });
 </script>
