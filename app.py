@@ -567,7 +567,7 @@ Budget by Category:
     context += f"\nUser Question: {question}\n\nProvide clear, actionable advice. Be concise but helpful. If they're asking about a purchase, tell them if they can afford it and suggest which category it should come from."
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
         response = model.generate_content(context)
         
         return jsonify({
