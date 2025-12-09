@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+motor
+python-dotenv
+pytest
+pytest-asyncio
+pytest-cov
+bcrypt
+email-validator
+httpx
