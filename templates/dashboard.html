@@ -328,7 +328,8 @@
   {% set total_budget = plan.total_budget if plan else 0 %}
   {% set total_spent = expense_by_category.values()|sum %}
   {% set remaining_budget = total_budget - total_spent %}
-  {% set savings = total_income - total_budget %}
+  {% set planned_savings = total_income - total_budget %}
+  {% set actual_savings = total_income - total_spent %}
   
   <div class="tracker-container">
     <canvas id="income-capacity-chart"></canvas>
@@ -338,38 +339,49 @@
     <div class="summary-card">
       <div class="summary-label">Total Income</div>
       <div class="summary-amount income-amount">${{ '%.2f'|format(total_income) }}</div>
+      <div class="summary-subtitle">What you earned</div>
     </div>
     
     <div class="summary-card">
       <div class="summary-label">Total Budgeted</div>
       <div class="summary-amount budget-amount">${{ '%.2f'|format(total_budget) }}</div>
+      <div class="summary-subtitle">What you planned</div>
     </div>
     
     <div class="summary-card">
       <div class="summary-label">Total Spent</div>
       <div class="summary-amount spent-amount">${{ '%.2f'|format(total_spent) }}</div>
+      <div class="summary-subtitle">What you actually spent</div>
     </div>
     
     <div class="summary-card">
       <div class="summary-label">Remaining Budget</div>
-      <div class="summary-amount remaining-amount">${{ '%.2f'|format(remaining_budget) }}</div>
+      <div class="summary-amount {% if remaining_budget < 0 %}danger-amount{% else %}remaining-amount{% endif %}">${{ '%.2f'|format(remaining_budget) }}</div>
+      <div class="summary-subtitle">Budget - Spent</div>
     </div>
     
     <div class="summary-card">
-      <div class="summary-label">Savings/Buffer</div>
-      <div class="summary-amount savings-amount">${{ '%.2f'|format(savings) }}</div>
+      <div class="summary-label">Planned Savings</div>
+      <div class="summary-amount {% if planned_savings < 0 %}danger-amount{% else %}savings-amount{% endif %}">${{ '%.2f'|format(planned_savings) }}</div>
+      <div class="summary-subtitle">Income - Budget</div>
     </div>
     
     <div class="summary-card">
+      <div class="summary-label">Actual Savings</div>
+      <div class="summary-amount {% if actual_savings < 0 %}danger-amount{% else %}success-amount{% endif %}">${{ '%.2f'|format(actual_savings) }}</div>
+      <div class="summary-subtitle">Income - Spent</div>
+    </div>
+    
+    <div class="summary-card status-card">
       <div class="summary-label">Status</div>
       <div class="summary-status">
         {% if total_spent > total_income %}
           <span class="status-warning">⚠️ Overspending!</span>
         {% elif total_spent > total_budget %}
           <span class="status-warning">⚠️ Over Budget!</span>
-        {% elif remaining_budget < total_budget * 0.1 %}
+        {% elif remaining_budget < total_budget * 0.1 and remaining_budget >= 0 %}
           <span class="status-close">⚡ Tight Budget</span>
-        {% elif savings < 0 %}
+        {% elif planned_savings < 0 %}
           <span class="status-warning">⚠️ Budget Exceeds Income!</span>
         {% else %}
           <span class="status-good">✓ Healthy</span>

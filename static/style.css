@@ -1209,7 +1209,13 @@ tbody td .icon-button {
 .summary-amount {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 0;
+  margin-bottom: 0.25rem;
+}
+
+.summary-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .income-amount {
@@ -1229,7 +1235,19 @@ tbody td .icon-button {
 }
 
 .savings-amount {
+  color: #10b981;
+}
+
+.success-amount {
   color: var(--success-color);
+}
+
+.danger-amount {
+  color: var(--danger-color);
+}
+
+.status-card {
+  grid-column: 1 / -1;
 }
 
 .summary-status {
