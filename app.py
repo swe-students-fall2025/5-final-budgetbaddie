@@ -449,6 +449,27 @@ def add_expense():
     flash("Expense added.")
     return redirect(url_for("dashboard"))
 
+@app.route("/expenses/delete/<expense_id>", methods=["POST"])
+def delete_expense(expense_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+    
+    try:
+        result = db.expenses.delete_one({
+            "_id": ObjectId(expense_id),
+            "user_id": user["_id"]
+        })
+        
+        if result.deleted_count > 0:
+            flash("Expense deleted.")
+        else:
+            flash("Expense not found.")
+    except Exception as e:
+        flash("Error deleting expense.")
+    
+    return redirect(url_for("dashboard"))
+
 
 @app.route("/logout")
 def logout():
