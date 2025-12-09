@@ -287,6 +287,12 @@ def dashboard():
 
     monthly_savings, total_savings = compute_monthly_savings(user["_id"])
     
+    # calculate expenses by category
+    expense_by_category = {}
+    for e in expenses:
+        cat = e.get('category', 'Other')
+        expense_by_category[cat] = expense_by_category.get(cat, 0) + e.get('amount', 0)
+    
     return render_template(
         "dashboard.html",
         user=user,
@@ -299,6 +305,7 @@ def dashboard():
         monthly_savings=monthly_savings,
         total_savings=total_savings,
         total_income=total_income,
+        expense_by_category=expense_by_category,
     )
 
 #budget plan routes
