@@ -43,6 +43,11 @@
       <span class="tooltip">Search Entries</span>
     </button>
 
+    <button id="open-ai-modal" class="icon-button">
+      <span class="ai-emoji">🤖</span>
+      <span class="tooltip">Ask AI Budget Advisor</span>
+    </button>
+
     <a href="{{ url_for('logout') }}" class="logout-button">
       <img src="{{ url_for('static', filename='logout.png') }}" alt="Logout">
       <span class="tooltip">Logout</span>
@@ -199,15 +204,218 @@
   </div>
 </div>
 
-<!-- 简单预算总览（非弹窗） -->
+<!-- budget vs expenses overview -->
 {% if not need_budget_popup %}
-<section class="budget-diagram">
-  <h3>Your this month's budget</h3>
-  <div id="budget-chart">
-    <p>$ {{ '%.2f'|format(plan.total_budget) if plan else 'N/A' }}</p>
+<section class="budget-expenses-overview">
+  <h2>Budget vs Expenses for {{ current_month }}/{{ current_year }}</h2>
+  
+  <div class="overview-grid">
+    <!-- budget categories -->
+    <div class="budget-section">
+      <h3>Budget Plan</h3>
+      <div class="budget-total-box">
+        Total Budget: ${{ '%.2f'|format(plan.total_budget) if plan else '0.00' }}
+      </div>
+      
+      {% if plan and plan.category_budgets %}
+      <div class="category-list">
+        {% for category, amount in plan.category_budgets.items() %}
+        <div class="category-item budget-item">
+          <span class="category-name">{{ category }}</span>
+          <span class="category-amount">${{ '%.2f'|format(amount) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-data">No budget categories set</p>
+      {% endif %}
+    </div>
+    
+    <!-- actual expenses -->
+    <div class="expenses-section">
+      <h3>Actual Expenses</h3>
+      
+      {% set expense_by_category = {} %}
+      {% for e in expenses %}
+        {% if e.category in expense_by_category %}
+          {% set _ = expense_by_category.update({e.category: expense_by_category[e.category] + e.amount}) %}
+        {% else %}
+          {% set _ = expense_by_category.update({e.category: e.amount}) %}
+        {% endif %}
+      {% endfor %}
+      
+      {% set total_expenses = expense_by_category.values()|sum %}
+      <div class="expenses-total-box">
+        Total Spent: ${{ '%.2f'|format(total_expenses) }}
+      </div>
+      
+      {% if expense_by_category %}
+      <div class="category-list">
+        {% for category, amount in expense_by_category.items() %}
+        <div class="category-item expense-item">
+          <span class="category-name">{{ category }}</span>
+          <span class="category-amount">${{ '%.2f'|format(amount) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-data">No expenses yet</p>
+      {% endif %}
+    </div>
+    
+    <!-- expense breakdown chart -->
+    <div class="chart-section">
+      <h3>Expense Breakdown</h3>
+      {% if expense_by_category %}
+      <div class="chart-container">
+        <canvas id="expense-pie-chart"></canvas>
+      </div>
+      {% else %}
+      <p class="no-data">Add expenses to see the chart</p>
+      {% endif %}
+    </div>
   </div>
 </section>
 {% endif %}
+
+<!-- category budget analysis -->
+{% if not need_budget_popup and plan and plan.category_budgets %}
+<section class="category-analysis">
+  <h2>Budget vs Spending by Category</h2>
+  
+  <div class="category-grid">
+    {% for category, budget_amount in plan.category_budgets.items() %}
+    {% set spent_amount = expense_by_category.get(category, 0) %}
+    {% set percentage = (spent_amount / budget_amount * 100) if budget_amount > 0 else 0 %}
+    {% if percentage <= 90 %}
+      {% set status_class = "status-under" %}
+      {% set status_text = "Under Budget" %}
+    {% elif percentage <= 100 %}
+      {% set status_class = "status-close" %}
+      {% set status_text = "Close to Budget" %}
+    {% else %}
+      {% set status_class = "status-over" %}
+      {% set status_text = "Over Budget!" %}
+    {% endif %}
+    
+    <div class="category-card {{ status_class }}">
+      <h3 class="category-title">{{ category }}</h3>
+      <div class="category-amounts">
+        <div class="amount-row">
+          <span class="amount-label">Budget:</span>
+          <span class="amount-value">${{ '%.2f'|format(budget_amount) }}</span>
+        </div>
+        <div class="amount-row">
+          <span class="amount-label">Spent:</span>
+          <span class="amount-value">${{ '%.2f'|format(spent_amount) }}</span>
+        </div>
+      </div>
+      
+      <div class="progress-bar-container">
+        <div class="progress-bar {{ status_class }}" style="width: {{ [percentage, 100]|min }}%"></div>
+      </div>
+      
+      <div class="category-status">
+        <span class="status-percentage">{{ '%.1f'|format(percentage) }}%</span>
+        <span class="status-label">{{ status_text }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- income capacity tracker -->
+{% if not need_budget_popup %}
+<section class="income-tracker">
+  <h2>Income Capacity Tracker</h2>
+  
+  {% set total_budget = plan.total_budget if plan else 0 %}
+  {% set total_spent = expense_by_category.values()|sum %}
+  {% set remaining_budget = total_budget - total_spent %}
+  {% set savings = total_income - total_budget %}
+  
+  <div class="tracker-container">
+    <canvas id="income-capacity-chart"></canvas>
+  </div>
+  
+  <div class="tracker-summary">
+    <div class="summary-card">
+      <div class="summary-label">Total Income</div>
+      <div class="summary-amount income-amount">${{ '%.2f'|format(total_income) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Total Budgeted</div>
+      <div class="summary-amount budget-amount">${{ '%.2f'|format(total_budget) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Total Spent</div>
+      <div class="summary-amount spent-amount">${{ '%.2f'|format(total_spent) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Remaining Budget</div>
+      <div class="summary-amount remaining-amount">${{ '%.2f'|format(remaining_budget) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Savings/Buffer</div>
+      <div class="summary-amount savings-amount">${{ '%.2f'|format(savings) }}</div>
+    </div>
+    
+    <div class="summary-card">
+      <div class="summary-label">Status</div>
+      <div class="summary-status">
+        {% if savings < 0 %}
+          <span class="status-warning">⚠️ Over Budget!</span>
+        {% elif savings < total_budget * 0.1 %}
+          <span class="status-close">⚡ Tight Budget</span>
+        {% else %}
+          <span class="status-good">✓ Healthy</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- AI Advice Modal -->
+<div id="ai-modal" class="modal">
+  <div class="modal-content ai-modal-content">
+    <h3>💡 AI Budget Advisor</h3>
+    
+    <div id="ai-conversation" class="ai-conversation">
+      <p class="ai-welcome">Ask me anything about your budget! For example:</p>
+      <ul class="ai-examples">
+        <li>"Can I afford a $50 dinner?"</li>
+        <li>"Should I buy a $200 jacket?"</li>
+        <li>"Do I have room in my budget for a $30 subscription?"</li>
+      </ul>
+    </div>
+    
+    <form id="ai-form">
+      <div class="field-row">
+        <textarea
+          id="ai-question"
+          name="question"
+          rows="3"
+          placeholder="Ask your budget question..."
+          required
+        ></textarea>
+      </div>
+      
+      <div class="ai-buttons">
+        <button type="submit" id="ai-submit-btn">
+          <span class="btn-text">Get Advice</span>
+          <span class="btn-loading" style="display: none;">Thinking...</span>
+        </button>
+        <button type="button" id="close-ai-modal" class="close-btn">Close</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- ========= Add Expense modal ========= -->
 <div id="expense-modal" class="modal">
@@ -261,13 +469,6 @@
         ></textarea>
       </div>
 
-      <div class="field-row">
-        <label>
-          <input type="checkbox" name="is_recurring">
-          Recurring
-        </label>
-      </div>
-
       <button type="submit">Add</button>
       <button type="button" id="close-expense-modal" class="close-btn">Close</button>
     </form>
@@ -282,7 +483,7 @@
         <th>Date</th>
         <th>Category</th>
         <th>Amount</th>
-        <th>Recurring</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -291,7 +492,13 @@
         <td>{{ e.date.strftime('%Y-%m-%d') if e.date else '' }}</td>
         <td>{{ e.category }}</td>
         <td>{{ '%.2f'|format(e.amount) }}</td>
-        <td>{{ 'Yes' if e.is_recurring else 'No' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('delete_expense', expense_id=e._id) }}" style="display: inline;" onsubmit="return confirm('Delete this expense?');">
+            <button type="submit" class="icon-button delete-btn">
+              <img src="{{ url_for('static', filename='delete.png') }}" alt="Delete">
+            </button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -328,32 +535,6 @@
       <div class="field-row">
         <label>Amount</label>
         <input type="number" step="0.01" name="amount" required>
-      </div>
-
-      <!-- Recurring + 下拉框 -->
-      <div class="field-row income-recurring-row">
-        <label class="checkbox-inline">
-          <input
-            type="checkbox"
-            id="income-recurring-checkbox"
-            name="is_recurring"
-          >
-          Recurring
-        </label>
-
-        <select
-          id="income-recurring-select"
-          name="recurrence_pattern"
-          class="recurring-select"
-          style="display:none;"
-        >
-          <option value="none">Does not repeat</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly on this date</option>
-          <option value="yearly">Annually on this date</option>
-          <option value="weekday">Every weekday (Mon–Fri)</option>
-        </select>
       </div>
 
       <!-- 备注 -->
@@ -396,9 +577,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const chooseIncomeBtn    = document.getElementById("choose-income");
   const chooseExpenseBtn   = document.getElementById("choose-expense");
 
-  const incomeForm               = document.getElementById("income-form");
-  const incomeRecurringCheckbox  = document.getElementById("income-recurring-checkbox");
-  const incomeRecurringSelect    = document.getElementById("income-recurring-select");
+  const incomeForm         = document.getElementById("income-form");
 
   const savingsModal       = document.getElementById("savings-modal");
   const openSavingsBtn     = document.getElementById("open-savings-modal");
@@ -447,31 +626,6 @@ document.addEventListener("DOMContentLoaded", function () {
   //    - 左边 income.png  -> 打开 income modal
   //    - 右边 add_expense.png -> 打开 expense modal
   // ======================================================
-  // ======================================================
-  // X. Income 表单：Recurring 复选框控制下拉框显示
-  // ======================================================
-  if (incomeRecurringCheckbox && incomeRecurringSelect) {
-    incomeRecurringCheckbox.addEventListener("change", function () {
-      if (this.checked) {
-        incomeRecurringSelect.style.display = "inline-block";
-        // 默认选中 "Does not repeat"，用户可以改
-        if (!incomeRecurringSelect.value) {
-          incomeRecurringSelect.value = "none";
-        }
-      } else {
-        incomeRecurringSelect.style.display = "none";
-        incomeRecurringSelect.value = "none";
-      }
-    });
-  }
-
-  // 如果以后想对 income 提交做额外校验，也可以在这里：
-  // if (incomeForm) {
-  //   incomeForm.addEventListener("submit", function (e) {
-  //     // 自定义校验逻辑...
-  //   });
-  // }
-
   // 点击 income 小按钮 -> 打开 income 弹窗
   if (chooseIncomeBtn && incomeModal) {
     chooseIncomeBtn.addEventListener("click", function () {
@@ -877,6 +1031,291 @@ document.addEventListener("DOMContentLoaded", function () {
   // ======================================================
   renderCategoryTable();
   updateTotalIfNotEdited();
+
+  // ======================================================
+  // 14. render expense pie chart (relative to total budget)
+  // ======================================================
+  const expensePieCanvas = document.getElementById('expense-pie-chart');
+  
+  if (expensePieCanvas) {
+    const expenseData = {
+      {% for category, amount in expense_by_category.items() %}
+      "{{ category }}": {{ amount }},
+      {% endfor %}
+    };
+    
+    const totalBudget = {{ plan.total_budget if plan else 0 }};
+    const categories = Object.keys(expenseData);
+    const amounts = Object.values(expenseData);
+    const totalSpent = amounts.reduce((a, b) => a + b, 0);
+    const remainingBudget = totalBudget - totalSpent;
+    
+    // Add remaining budget to the chart if there is any
+    const chartLabels = [...categories];
+    const chartData = [...amounts];
+    const colors = [
+      '#6366f1', '#ec4899', '#10b981', '#f59e0b',
+      '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6',
+      '#a855f7', '#84cc16', '#f97316', '#3b82f6'
+    ];
+    const chartColors = colors.slice(0, categories.length);
+    
+    if (remainingBudget > 0) {
+      chartLabels.push('Remaining Budget');
+      chartData.push(remainingBudget);
+      chartColors.push('#e5e7eb'); // Gray color for remaining
+    }
+    
+    const ctx = expensePieCanvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: chartLabels,
+        datasets: [{
+          data: chartData,
+          backgroundColor: chartColors,
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 15,
+              font: { size: 12 },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const percentage = totalBudget > 0 ? ((value / totalBudget) * 100).toFixed(1) : 0;
+                  return {
+                    text: `${label}: $${value.toFixed(2)} (${percentage}% of budget)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const value = context.parsed;
+                const percentage = totalBudget > 0 ? ((value / totalBudget) * 100).toFixed(1) : 0;
+                return `$${value.toFixed(2)} (${percentage}% of budget)`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 1000
+        }
+      }
+    });
+  }
+
+  // ======================================================
+  // 15. render income capacity tracker chart
+  // ======================================================
+  const incomeCapacityCanvas = document.getElementById('income-capacity-chart');
+  
+  if (incomeCapacityCanvas) {
+    {% set total_budget = plan.total_budget if plan else 0 %}
+    {% set total_spent = expense_by_category.values()|sum %}
+    {% set remaining_budget = total_budget - total_spent %}
+    {% set savings = total_income - total_budget %}
+    
+    const totalIncome = {{ total_income }};
+    const totalBudget = {{ total_budget }};
+    const totalSpent = {{ total_spent }};
+    const remainingBudget = {{ remaining_budget if remaining_budget > 0 else 0 }};
+    const savings = {{ savings }};
+    
+    const ctx = incomeCapacityCanvas.getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Financial Overview'],
+        datasets: [
+          {
+            label: 'Actual Expenses',
+            data: [totalSpent],
+            backgroundColor: '#ec4899',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          },
+          {
+            label: 'Remaining Budget',
+            data: [remainingBudget],
+            backgroundColor: '#6366f1',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          },
+          {
+            label: 'Savings/Buffer',
+            data: [savings > 0 ? savings : 0],
+            backgroundColor: savings > 0 ? '#10b981' : '#ef4444',
+            borderColor: '#ffffff',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            max: totalIncome > 0 ? totalIncome * 1.1 : 100,
+            title: {
+              display: true,
+              text: 'Amount ($)',
+              font: { size: 14, weight: 'bold' }
+            },
+            grid: {
+              color: 'rgba(0, 0, 0, 0.1)'
+            }
+          },
+          y: {
+            stacked: true,
+            display: false
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              padding: 15,
+              font: { size: 12 },
+              usePointStyle: true
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: { size: 14, weight: 'bold' },
+            bodyFont: { size: 13 },
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label || '';
+                const value = context.parsed.x || 0;
+                const percentage = totalIncome > 0 ? ((value / totalIncome) * 100).toFixed(1) : 0;
+                return `${label}: $${value.toFixed(2)} (${percentage}% of income)`;
+              },
+              afterBody: function(context) {
+                if (context.length > 0) {
+                  return `\nTotal Income: $${totalIncome.toFixed(2)}`;
+                }
+              }
+            }
+          }
+        },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart'
+        }
+      }
+    });
+  }
+
+  // ======================================================
+  // 16. AI Modal
+  // ======================================================
+  const aiModal = document.getElementById("ai-modal");
+  const openAiBtn = document.getElementById("open-ai-modal");
+  const closeAiBtn = document.getElementById("close-ai-modal");
+  const aiForm = document.getElementById("ai-form");
+  const aiQuestion = document.getElementById("ai-question");
+  const aiConversation = document.getElementById("ai-conversation");
+  const aiSubmitBtn = document.getElementById("ai-submit-btn");
+
+  if (openAiBtn && aiModal) {
+    openAiBtn.addEventListener("click", function () {
+      aiModal.classList.add("show");
+    });
+  }
+
+  if (closeAiBtn && aiModal) {
+    closeAiBtn.addEventListener("click", function () {
+      aiModal.classList.remove("show");
+    });
+  }
+
+  if (aiModal) {
+    aiModal.addEventListener("click", function (event) {
+      if (event.target === aiModal) {
+        aiModal.classList.remove("show");
+      }
+    });
+  }
+
+  if (aiForm) {
+    aiForm.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      
+      const question = aiQuestion.value.trim();
+      if (!question) return;
+      
+      // Show loading state
+      aiSubmitBtn.disabled = true;
+      aiSubmitBtn.querySelector('.btn-text').style.display = 'none';
+      aiSubmitBtn.querySelector('.btn-loading').style.display = 'inline';
+      
+      // Add user question to conversation
+      const userMsg = document.createElement('div');
+      userMsg.className = 'ai-message user-message';
+      userMsg.textContent = question;
+      aiConversation.appendChild(userMsg);
+      
+      try {
+        const response = await fetch('/ai/advice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ question })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Add AI response to conversation
+          const aiMsg = document.createElement('div');
+          aiMsg.className = 'ai-message ai-response';
+          aiMsg.textContent = data.advice;
+          aiConversation.appendChild(aiMsg);
+          
+          // Scroll to bottom
+          aiConversation.scrollTop = aiConversation.scrollHeight;
+          
+          // Clear input
+          aiQuestion.value = '';
+        } else {
+          alert('Error: ' + (data.error || 'Failed to get advice'));
+        }
+      } catch (error) {
+        alert('Error connecting to AI service: ' + error.message);
+      } finally {
+        // Reset button state
+        aiSubmitBtn.disabled = false;
+        aiSubmitBtn.querySelector('.btn-text').style.display = 'inline';
+        aiSubmitBtn.querySelector('.btn-loading').style.display = 'none';
+      }
+    });
+  }
 
 });
 </script>

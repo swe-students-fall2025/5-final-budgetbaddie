@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_mail import Mail, Message
 from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -9,118 +9,7 @@ from dotenv import load_dotenv
 from collections import defaultdict
 import secrets
 import json
-
-
-# recurrence codes
-def _compute_next_date(current: date, pattern: str) -> date:
-    """根据 recurrence_pattern 计算下一次日期。
-    pattern: 'daily', 'weekly', 'monthly', 'yearly', 'weekday'
-    """
-    if pattern == "daily":
-        return current + timedelta(days=1)
-    if pattern == "weekly":
-        return current + timedelta(weeks=1)
-    if pattern == "monthly":
-        return current + timedelta(days=30)
-    if pattern == "yearly":
-        return date(current.year + 1, current.month, current.day)
-    if pattern == "weekday":
-        next_day = current + timedelta(days=1)
-        if next_day.weekday() == 5:   # Saturday
-            return next_day + timedelta(days=2)
-        if next_day.weekday() == 6:   # Sunday
-            return next_day + timedelta(days=1)
-        return next_day
-    return current + timedelta(days=30)
-
-def generate_recurring_entries_for_user(user_id: str):
-    """在进入 dashboard 前调用。
-    把该用户所有 recurring 模板展开到今天，避免漏账。
-    """
-    if not user_id:
-        return
-
-    uid = ObjectId(user_id)
-    today = date.today()
-
-    # -------- 1. Recurring expenses --------
-    for tmpl in db.recurring_expenses.find({"user_id": uid, "is_active": True}):
-        pattern = tmpl.get("recurrence_pattern", "monthly")
-        last_dt = tmpl.get("last_generated_date") or tmpl.get("start_date")
-
-        # 统一成 date 类型
-        if isinstance(last_dt, datetime):
-            last_dt = last_dt.date()
-
-        changed = False
-        # 从 last_dt 一直生成到今天
-        while last_dt and last_dt < today:
-            next_dt = _compute_next_date(last_dt, pattern)
-            if next_dt > today:
-                break
-
-            # 这里才插入一条新的 expense 记录（注意缩进在 while 里面）
-            dt = datetime.combine(next_dt, datetime.min.time())
-            db.expenses.insert_one({
-                "user_id": uid,
-                "budget_plan_id": None,
-                "category": tmpl["category"],
-                "amount": tmpl["amount"],
-                "note": tmpl.get("note", ""),
-                "is_recurring": True,
-                "recurrence_pattern": pattern,
-                "parent_recurring_id": tmpl["_id"],
-                "date": dt,
-                "month": dt.month,
-                "year": dt.year,
-                "created_at": datetime.utcnow(),
-            })
-
-            last_dt = next_dt
-            changed = True
-
-        # 更新模板的 last_generated_date
-        if changed:
-            db.recurring_expenses.update_one(
-                {"_id": tmpl["_id"]},
-                {"$set": {"last_generated_date": last_dt}}
-            )
-
-    # -------- 2. Recurring incomes --------
-    for tmpl in db.recurring_incomes.find({"user_id": uid, "is_active": True}):
-        pattern = tmpl.get("recurrence_pattern", "monthly")
-        last_dt = tmpl.get("last_generated_date") or tmpl.get("start_date")
-
-        if isinstance(last_dt, datetime):
-            last_dt = last_dt.date()
-
-        changed = False
-        while last_dt and last_dt < today:
-            next_dt = _compute_next_date(last_dt, pattern)
-            if next_dt > today:
-                break
-
-            dt = datetime.combine(next_dt, datetime.min.time())
-            db.incomes.insert_one({
-                "user_id": uid,
-                "date": dt,
-                "source": tmpl["source"],
-                "amount": tmpl["amount"],
-                "note": tmpl.get("note", ""),
-                "is_recurring": True,
-                "recurrence_pattern": pattern,
-                "parent_recurring_id": tmpl["_id"],
-                "created_at": datetime.utcnow(),
-            })
-
-            last_dt = next_dt
-            changed = True
-
-        if changed:
-            db.recurring_incomes.update_one(
-                {"_id": tmpl["_id"]},
-                {"$set": {"last_generated_date": last_dt}}
-            )
+import google.generativeai as genai
 
 
 load_dotenv()
@@ -208,6 +97,11 @@ db = client["budgetbaddie"] """
 
 client = MongoClient("mongodb://localhost:27017")
 db = client["budgetbaddie"]
+
+# Configure Gemini AI
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 def send_reset_email(user, token):
     reset_url = url_for("reset_password", token=token, _external=True)
@@ -353,8 +247,6 @@ def dashboard():
     user = get_current_user()
     if not user:
         return redirect(url_for("login"))
-    
-    generate_recurring_entries_for_user(str(user["_id"]))
 
     today = date.today()
     year, month = today.year, today.month
@@ -380,6 +272,20 @@ def dashboard():
         "month": month
     }).sort("date", -1))
 
+    # calculate total monthly income
+    from calendar import monthrange
+    last_day = monthrange(year, month)[1]
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+    
+    total_income = sum([
+        inc.get('amount', 0) 
+        for inc in db.incomes.find({
+            "user_id": user["_id"],
+            "date": {"$gte": start_date, "$lte": end_date}
+        })
+    ])
+
     monthly_savings, total_savings = compute_monthly_savings(user["_id"])
     
     return render_template(
@@ -393,6 +299,7 @@ def dashboard():
         plan = plan, #add popup function?
         monthly_savings=monthly_savings,
         total_savings=total_savings,
+        total_income=total_income,
     )
 
 #budget plan routes
@@ -486,9 +393,6 @@ def add_income():
     amount_s = request.form.get("amount", "0")
     note     = request.form.get("note", "").strip()
 
-    is_recurring       = "is_recurring" in request.form
-    recurrence_pattern = request.form.get("recurrence_pattern", "none")
-
     # 3. 解析日期
     dt = None
     if date_str:
@@ -503,31 +407,16 @@ def add_income():
     except ValueError:
         amount = 0.0
 
-    # 5. 先插入这一次的实际 income 记录
+    # 5. 插入 income 记录
     income_doc = {
         "user_id": user_id,
         "date": dt,
         "source": source,
         "amount": amount,
         "note": note,
-        "is_recurring": is_recurring,
-        "recurrence_pattern": recurrence_pattern if is_recurring else "none",
         "created_at": datetime.utcnow(),
     }
     db.incomes.insert_one(income_doc)
-
-    # 6. 如果勾选了 recurring，再插一个模板到 recurring_incomes
-    if is_recurring and dt is not None:
-        db.recurring_incomes.insert_one({
-            "user_id": user_id,
-            "start_date": dt.date(),          # 第一次收入日期
-            "last_generated_date": dt.date(), # 已经生成到哪一天
-            "source": source,
-            "amount": amount,
-            "note": note,
-            "recurrence_pattern": recurrence_pattern,
-            "is_active": True,
-        })
 
     flash("Income added!")
     return redirect(url_for("dashboard"))
@@ -547,11 +436,6 @@ def add_expense():
     category = request.form.get("category")
     amount_s = request.form.get("amount", "0")
     note     = request.form.get("note", "").strip()
-    is_recurring = "is_recurring" in request.form
-
-    # 目前前端只有一个 checkbox，如果以后你也想给 expense 加下拉，
-    # 可以在 HTML 里加一个 <select name="recurrence_pattern">，这里就会自动接住
-    recurrence_pattern = request.form.get("recurrence_pattern", "monthly" if is_recurring else "none")
 
     # 2. 解析日期
     if date_str:
@@ -568,14 +452,12 @@ def add_expense():
     except ValueError:
         amount = 0.0
 
-    # 4. 插入这一次的实际 expense 记录
+    # 4. 插入 expense 记录
     expense = {
         "user_id": user_id,
         "budget_plan_id": None,
         "category": category,
         "amount": amount,
-        "is_recurring": is_recurring,
-        "recurrence_pattern": recurrence_pattern if is_recurring else "none",
         "note": note,
         "date": dt,
         "month": month,
@@ -585,21 +467,120 @@ def add_expense():
 
     db.expenses.insert_one(expense)
 
-    # 5. 如果勾选了 recurring，再插一个模板到 recurring_expenses
-    if is_recurring:
-        db.recurring_expenses.insert_one({
-            "user_id": user_id,
-            "start_date": dt.date(),
-            "last_generated_date": dt.date(),
-            "category": category,
-            "amount": amount,
-            "note": note,
-            "recurrence_pattern": recurrence_pattern,
-            "is_active": True,
-        })
-
     flash("Expense added.")
     return redirect(url_for("dashboard"))
+
+@app.route("/expenses/delete/<expense_id>", methods=["POST"])
+def delete_expense(expense_id):
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+    
+    try:
+        result = db.expenses.delete_one({
+            "_id": ObjectId(expense_id),
+            "user_id": user["_id"]
+        })
+        
+        if result.deleted_count > 0:
+            flash("Expense deleted.")
+        else:
+            flash("Expense not found.")
+    except Exception as e:
+        flash("Error deleting expense.")
+    
+    return redirect(url_for("dashboard"))
+
+@app.route("/ai/advice", methods=["POST"])
+def get_ai_advice():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "Not authenticated"}), 401
+    
+    question = request.json.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "Question is required"}), 400
+    
+    # Get current month budget data
+    today = date.today()
+    year, month = today.year, today.month
+    
+    # Fetch budget plan
+    plan = db.budget_plans.find_one({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    })
+    
+    # Fetch expenses
+    expenses = list(db.expenses.find({
+        "user_id": user["_id"],
+        "year": year,
+        "month": month
+    }))
+    
+    # Calculate totals
+    from calendar import monthrange
+    last_day = monthrange(year, month)[1]
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, last_day, 23, 59, 59)
+    
+    total_income = sum([
+        inc.get('amount', 0) 
+        for inc in db.incomes.find({
+            "user_id": user["_id"],
+            "date": {"$gte": start_date, "$lte": end_date}
+        })
+    ])
+    
+    # Build context for AI
+    total_budget = plan.get('total_budget', 0) if plan else 0
+    category_budgets = plan.get('category_budgets', {}) if plan else {}
+    
+    # Calculate spent per category
+    expense_by_category = {}
+    for e in expenses:
+        cat = e.get('category', 'Other')
+        expense_by_category[cat] = expense_by_category.get(cat, 0) + e.get('amount', 0)
+    
+    total_spent = sum(expense_by_category.values())
+    remaining_budget = total_budget - total_spent
+    savings = total_income - total_budget
+    
+    # Build prompt for Gemini
+    context = f"""You are a helpful financial advisor. Analyze this user's budget and provide practical advice.
+
+Current Financial Situation:
+- Monthly Income: ${total_income:.2f}
+- Total Budget: ${total_budget:.2f}
+- Total Spent This Month: ${total_spent:.2f}
+- Remaining Budget: ${remaining_budget:.2f}
+- Savings/Buffer: ${savings:.2f}
+
+Budget by Category:
+"""
+    for category, budget_amount in category_budgets.items():
+        spent = expense_by_category.get(category, 0)
+        remaining = budget_amount - spent
+        context += f"- {category}: ${budget_amount:.2f} budgeted, ${spent:.2f} spent, ${remaining:.2f} remaining\n"
+    
+    context += f"\nUser Question: {question}\n\nProvide clear, actionable advice. Be concise but helpful. If they're asking about a purchase, tell them if they can afford it and suggest which category it should come from."
+    
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        response = model.generate_content(context)
+        
+        return jsonify({
+            "advice": response.text,
+            "context": {
+                "total_income": total_income,
+                "total_budget": total_budget,
+                "total_spent": total_spent,
+                "remaining_budget": remaining_budget
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": f"AI service error: {str(e)}"}), 500
 
 
 @app.route("/logout")
