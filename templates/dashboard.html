@@ -363,10 +363,14 @@
     <div class="summary-card">
       <div class="summary-label">Status</div>
       <div class="summary-status">
-        {% if savings < 0 %}
+        {% if total_spent > total_income %}
+          <span class="status-warning">⚠️ Overspending!</span>
+        {% elif total_spent > total_budget %}
           <span class="status-warning">⚠️ Over Budget!</span>
-        {% elif savings < total_budget * 0.1 %}
+        {% elif remaining_budget < total_budget * 0.1 %}
           <span class="status-close">⚡ Tight Budget</span>
+        {% elif savings < 0 %}
+          <span class="status-warning">⚠️ Budget Exceeds Income!</span>
         {% else %}
           <span class="status-good">✓ Healthy</span>
         {% endif %}
