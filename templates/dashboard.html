@@ -690,6 +690,9 @@ document.addEventListener("DOMContentLoaded", function () {
   if (chooseIncomeBtn && incomeModal) {
     chooseIncomeBtn.addEventListener("click", function () {
       incomeModal.classList.add("show");
+      if (choiceContainer) {
+        choiceContainer.style.display = "none";
+      }
     });
   }
 
@@ -713,6 +716,9 @@ document.addEventListener("DOMContentLoaded", function () {
   if (chooseExpenseBtn && expenseModal) {
     chooseExpenseBtn.addEventListener("click", function () {
       expenseModal.classList.add("show");
+      if (choiceContainer) {
+        choiceContainer.style.display = "none";
+      }
     });
   }
 

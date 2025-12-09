@@ -2,7 +2,7 @@ name: api ci/cd
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, avi-fix-income]
   pull_request:
     branches: [main, master]
     types: [opened, synchronize, reopened, closed]
